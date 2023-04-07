@@ -2,26 +2,24 @@
   "name": "simple-odata-server",
   "version": "1.2.0",
   "description": "OData server with adapter for mongodb and nedb",
-  "main": "index.js",
-  "scripts": {
-    "test": "standard && mocha --exit -R spec"
-  },
-  "author": "Jan Blaha",
-  "license": "MIT",
   "repository": "pofider/node-simple-odata-server",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "start": "set NODE_ENV=dev&& node ./index.js",
+    "build": "set NODE_ENV=prod&& node ./index.js"
+  },
+  "license": "MIT",
   "keywords": [
     "OData",
     "server",
     "mongodb",
     "nedb"
   ],
-  "standard": {
-    "ignore": "example/**",
-    "env": {
-      "mocha": true,
-      "node": true
-    }
-  },
   "dependencies": {
     "methods": "1.1.2",
     "odata-parser": "1.4.1",
@@ -30,6 +28,7 @@
     "xmlbuilder": "15.1.1"
   },
   "devDependencies": {
+    "@randajan/simple-lib": "2.0.3",
     "eslint": "8.19.0",
     "mocha": "10.0.0",
     "mongodb": "4.7.0",
@@ -40,7 +39,17 @@
     "xml2js": "0.4.23"
   },
   "files": [
-    "lib",
-    "index.js"
-  ]
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "homepage": "https://github.com/randajan/odata-server",
+  "bugs": {
+    "url": "https://github.com/randajan/odata-server/issues"
+  },
+  "author": {
+    "name": "Jan Randa",
+    "email": "jnranda@gmail.com",
+    "url": "https://www.linkedin.com/in/randajan/"
+  }
 }

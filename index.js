@@ -1,11 +1,8 @@
-/*!
- * Copyright(c) 2014 Jan Blaha (pofider)
- *
- * Simple OData server with adapters for mongodb and nedb
- */
+import sapp from "@randajan/simple-lib";
 
-const ODataServer = require('./lib/odataServer.js')
 
-module.exports = function (options) {
-  return new ODataServer(options)
-}
+sapp(false, {
+    port:4002,
+    mode:"node",
+    external:["@randajan/jet-core", "safe-buffer", "path-to-regexp", "http", "methods"]
+})
