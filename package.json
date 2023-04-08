@@ -1,6 +1,6 @@
 {
   "name": "simple-odata-server",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "OData server with adapter for mongodb and nedb",
   "repository": "pofider/node-simple-odata-server",
   "type": "module",
