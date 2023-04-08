@@ -28,7 +28,8 @@
     "xmlbuilder": "15.1.1"
   },
   "devDependencies": {
-    "@randajan/simple-lib": "2.0.3",
+    "@randajan/simple-lib": "^2.1.1",
+    "esbuild-plugin-import-glob": "^0.1.1",
     "eslint": "8.19.0",
     "mocha": "10.0.0",
     "mongodb": "4.7.0",

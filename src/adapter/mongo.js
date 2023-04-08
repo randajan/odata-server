@@ -1,40 +1,12 @@
-import { MongoClient, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import jet from "@randajan/jet-core";
 
 const { solid, cached } = jet.prop;
 
-const _methodsArgs = {
-    update: ["collectionName", "query", "data", "request", "callback"],
-    remove: ["collectionName", "query", "request", "callback"],
-    insert: ["collectionName", "data", "request", "callback"],
-    query: ["collectionName", "query", "request", "callback"]
-};
+const _convertStringsToObjectIds = obj => jet.map(obj, (val, fullKey, parentKey, key)=>{
+    return (key === '_id') ? ObjectId(val) : val;
+}, true)
 
-const _fetchContext = (methodName, args) => {
-    const context = solid.all({}, { methodName });
-    const methodArgs = _methodsArgs[methodName];
-
-    for (let k in methodArgs) {
-        const arg = args[k];
-        const argName = methodArgs[k];
-        const enumerable = (argName !== "request" && argName !== "callback");
-        solid(context, argName, arg, enumerable);
-    }
-
-    return context;
-}
-
-const _hexTest = /^[0-9A-Fa-f]{24}$/;
-const _convertStringsToObjectIds = o => {
-    if (!Object.jet.is(o)) { return o; }
-
-    for (var i in o) {
-        if (i === '_id' && String.jet.is(o[i]) && _hexTest.test(o[i])) { o[i] = new ObjectId(o[i]); }
-        else { o[i] = _convertStringsToObjectIds(o[i]); }
-    }
-
-    return o;
-};
 
 const update = async (collection, { query, data }) => {
     if (data.$set) { delete data.$set._id; } //idk why, it was in source code
@@ -64,41 +36,37 @@ const insert = async (collection, { data }) => {
 
 }
 
-const query = async (collection, { query }) => {
+const query = async (collection, { options }) => {
+    const { $select, $sort, $skip, $limit, $count, $inlinecount, $filter } = _convertStringsToObjectIds(options);
 
-    let qr = collection.find(query.$filter, { projection: query.$select || {} });
+    let qr = collection.find($filter, { projection: $select || {} });
 
-    if (query.$sort) { qr = qr.sort(query.$sort); }
-    if (query.$skip) { qr = qr.skip(query.$skip); }
-    if (query.$limit) { qr = qr.limit(query.$limit); }
-    if (query.$count) { return qr.count(); }
+    if ($sort) { qr = qr.sort($sort); }
+    if ($skip) { qr = qr.skip($skip); }
+    if ($limit) { qr = qr.limit($limit); }
+    if ($count) { return qr.count(); }
 
     const value = await qr.toArray();
 
-    if (!query.$inlinecount) { return value; }
+    if (!$inlinecount) { return value; }
 
-    const count = await collection.find(query.$filter).count();
+    const count = await collection.find($filter).count();
 
     return { count, value };
 
 }
 
-const _methods = { update, remove, query, insert };
-
 export default getDB=>{
+    const _actions = { update, remove, query, insert };
     
-    return async (methodName, req)=>{
-        const method = _methods[methodName];
-        if (!method) { throw Error(`Unknown method '${methodName}'`); }
-
-        //const { collectionName, query, data, callback } = context;
+    return async (actionName, context)=>{
+        const action = _actions[actionName];
+        if (!action) { throw Error(`Unknown action '${actionName}'`); }
+        
         const db = await getDB();
-        //const collection = db.collection(collectionName);
+        const collection = db.collection(context.params.collection);
     
-        //_convertStringsToObjectIds(query);
-        //_convertStringsToObjectIds(data);
-    
-        //return method(collection, req);
+        return action(collection, context);
     }
 
 }

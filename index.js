@@ -1,9 +1,17 @@
-import sapp from "@randajan/simple-lib";
+import slib from "@randajan/simple-lib";
+
+import ImportGlobPlugin from 'esbuild-plugin-import-glob';
 
 
-sapp(false, {
+slib(false, {
     port:4002,
     mode:"node",
-    external:["@randajan/jet-core", "safe-buffer", "path-to-regexp", "http", "methods", "xmlbuilder", "odata-parser", "mongodb"],
-    entries:["index.js", "adapter/mongo.js"]
+    lib:{
+        entries:["index.js", "adapter/mongo.js"],
+        plugins:[ImportGlobPlugin.default()]
+    },
+    demo:{
+        external:["chalk"]
+    }
+    
 })

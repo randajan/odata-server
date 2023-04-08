@@ -50,7 +50,6 @@ const processBody = (data, {cfg, url}, req, res) => {
 
       res.statusCode = 201;
       res.setHeader('Content-Type', 'application/json;odata.metadata=minimal;odata.streaming=true;IEEE754Compatible=false;charset=utf-8');
-      res.setHeader('OData-Version', '4.0');
       res.setHeader('Location', url + '/' + req.params.collection + "/('" + encodeURI(entity._id) + "')");
 
       cfg.pruneResults(req.params.collection, entity);
@@ -70,9 +69,9 @@ const processBody = (data, {cfg, url}, req, res) => {
   }
 };
 
-export const insert = (ods, req, res) => {
+export default (server, req, res) => {
   if (req.body) {
-    return processBody(req.body, ods, req, res);
+    return processBody(req.body, server, req, res);
   }
 
   let body = '';
@@ -84,6 +83,6 @@ export const insert = (ods, req, res) => {
   });
   
   req.on('end', () => {
-    return processBody(JSON.parse(body), ods, req, res);
+    return processBody(JSON.parse(body), server, req, res);
   });
 };

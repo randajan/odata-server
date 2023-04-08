@@ -1,7 +1,10 @@
 // src/adapter/mongo.js
-import { MongoClient, ObjectId } from "mongodb";
+import { ObjectId } from "mongodb";
 import jet from "@randajan/jet-core";
 var { solid, cached } = jet.prop;
+var _convertStringsToObjectIds = (obj) => jet.map(obj, (val, fullKey, parentKey, key) => {
+  return key === "_id" ? ObjectId(val) : val;
+}, true);
 var update = async (collection, { query: query2, data }) => {
   if (data.$set) {
     delete data.$set._id;
@@ -23,35 +26,38 @@ var insert = async (collection, { data }) => {
   const value = await collection.insertOne(data);
   return collection.findOne({ _id: value.insertedId });
 };
-var query = async (collection, { query: query2 }) => {
-  let qr = collection.find(query2.$filter, { projection: query2.$select || {} });
-  if (query2.$sort) {
-    qr = qr.sort(query2.$sort);
+var query = async (collection, { options }) => {
+  const { $select, $sort, $skip, $limit, $count, $inlinecount, $filter } = _convertStringsToObjectIds(options);
+  let qr = collection.find($filter, { projection: $select || {} });
+  if ($sort) {
+    qr = qr.sort($sort);
   }
-  if (query2.$skip) {
-    qr = qr.skip(query2.$skip);
+  if ($skip) {
+    qr = qr.skip($skip);
   }
-  if (query2.$limit) {
-    qr = qr.limit(query2.$limit);
+  if ($limit) {
+    qr = qr.limit($limit);
   }
-  if (query2.$count) {
+  if ($count) {
     return qr.count();
   }
   const value = await qr.toArray();
-  if (!query2.$inlinecount) {
+  if (!$inlinecount) {
     return value;
   }
-  const count = await collection.find(query2.$filter).count();
+  const count = await collection.find($filter).count();
   return { count, value };
 };
-var _methods = { update, remove, query, insert };
 var mongo_default = (getDB) => {
-  return async (methodName, req) => {
-    const method = _methods[methodName];
-    if (!method) {
-      throw Error(`Unknown method '${methodName}'`);
+  const _actions = { update, remove, query, insert };
+  return async (actionName, context) => {
+    const action = _actions[actionName];
+    if (!action) {
+      throw Error(`Unknown action '${actionName}'`);
     }
     const db = await getDB();
+    const collection = db.collection(context.params.collection);
+    return action(collection, context);
   };
 };
 export {

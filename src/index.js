@@ -1,12 +1,3 @@
-import { ODataServer } from "./class/ODataServer.js";
-import { buildMetadata } from "./meta/metadata.js";
-import { prune } from "./validations/prune.js";
-import { queryTransform } from "./validations/queryTransform.js";
+import { Server } from "./class/Server.js";
 
-export default (options)=>new ODataServer(options);
-
-export {
-    queryTransform,
-    buildMetadata,
-    prune
-}
+export default (options)=>new Server(options);

@@ -4,19 +4,21 @@ import jet from "@randajan/jet-core";
 const { solid, cached, virtual } = jet.prop;
 
 export class Route {
-    constructor(router, path, resolver) {
+    constructor(method, path, resolver) {
 
         const keys = [];
 
         solid.all(this, {
-            router,
             resolver
         }, false);
 
-        cached(this, {}, "regex", _=>pathToRegexp(path, keys), false);
-        virtual(this, "keys", _=>{ this.regex; return keys; }, false);
+        cached(this, {}, "regex", _ => pathToRegexp(path, keys), false);
+        virtual(this, "keys", _ => { this.regex; return keys; }, false);
 
-        solid(this, "path", path);
+        solid.all(this, {
+            method,
+            path
+        });
 
     }
 
@@ -37,22 +39,35 @@ export class Route {
     }
 
     async resolve(req, res) {
-        const params = this.parseParams(req.odata.url.pathname);
+        const { odata } = req;
+        const { url, server:{ cors } } = odata;
+        const params = this.parseParams(url.pathname);
 
         if (!params) { return false; }
 
         req.params = params;
-        solid.all(req.odata, {
-            route:this,
+        solid.all(odata, {
+            route: this,
             params,
         });
 
-        this.router.addCors(res);
+        res.setHeader('OData-Version', '4.0');
+        res.setHeader('DataServiceVersion', '4.0');
+        if (cors) { res.setHeader('Access-Control-Allow-Origin', cors); }
 
         const result = await this.resolver(req, res);
-        
-        res.end(result);
-        
+
+        if (Object.jet.is(result)) {
+            res.stateCode = 200;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify(result));
+        } else if (result) {
+            res.stateCode = 200;
+            res.end(result);
+        } else {
+            res.stateCode = 204;
+        }
+
         return true;
     }
 

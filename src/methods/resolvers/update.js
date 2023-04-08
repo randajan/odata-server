@@ -42,9 +42,9 @@ const processBody = (body, {cfg}, req, res) => {
   }
 };
 
-export const update = (ods, req, res) => {
+export default (server, req, res) => {
   if (req.body) {
-    return processBody(req.body, ods, req, res);
+    return processBody(req.body, server, req, res);
   }
   let body = '';
   req.on('data', (data) => {
@@ -54,6 +54,6 @@ export const update = (ods, req, res) => {
     }
   });
   req.on('end', () => {
-    return processBody(JSON.parse(body), ods, req, res);
+    return processBody(JSON.parse(body), server, req, res);
   });
 };

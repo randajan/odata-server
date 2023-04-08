@@ -1,7 +1,12 @@
-// src/class/ODataServer.js
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
+// src/class/Server.js
 import { parse as parseUrl } from "url";
-import { EventEmitter } from "events";
-import { Buffer } from "safe-buffer";
+import { Buffer as Buffer2 } from "safe-buffer";
 import jet5 from "@randajan/jet-core";
 
 // src/tools.js
@@ -9,19 +14,62 @@ import jet from "@randajan/jet-core";
 var vault2 = jet.vault("ODataServer");
 var escapeRegExp = (str) => str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
 
-// src/class/Router.js
-import methods from "methods";
-import jet4 from "@randajan/jet-core";
+// src/validations/prune.js
+var _prune = (doc, model, type) => {
+  if (doc instanceof Array) {
+    for (const i in doc) {
+      _prune(doc[i], model, type);
+    }
+    return;
+  }
+  for (const prop in doc) {
+    if (!prop || doc[prop] === void 0 || prop.toString().substring(0, 6) === "@odata") {
+      continue;
+    }
+    const propDef = type[prop];
+    if (!propDef) {
+      delete doc[prop];
+      continue;
+    }
+    if (propDef.type.indexOf("Collection") === 0) {
+      if (propDef.type.indexOf("Collection(Edm") === 0) {
+        continue;
+      }
+      let complexTypeName = propDef.type.replace("Collection(" + model.namespace + ".", "");
+      complexTypeName = complexTypeName.substring(0, complexTypeName.length - 1);
+      const complexType = model.complexTypes[complexTypeName];
+      if (!complexType) {
+        throw new Error(`Complex type ${complexTypeName} was not found.`);
+      }
+      for (const i in doc[prop]) {
+        _prune(doc[prop][i], model, complexType);
+      }
+      continue;
+    }
+    if (propDef.type.indexOf("Edm") !== 0) {
+      const complexTypeName = propDef.type.replace(model.namespace + ".", "");
+      const complexType = model.complexTypes[complexTypeName];
+      if (!complexType) {
+        throw new Error(`Complex type ${complexTypeName} was not found.`);
+      }
+      _prune(doc[prop], model, complexType);
+    }
+  }
+};
+var prune = ({ model }, collection, docs) => {
+  const entitySet = model.entitySets[collection];
+  const entityType = model.entityTypes[entitySet.entityType.replace(model.namespace + ".", "")];
+  _prune(docs, model, entityType);
+};
 
 // src/class/Route.js
 import { pathToRegexp } from "path-to-regexp";
 import jet2 from "@randajan/jet-core";
 var { solid, cached, virtual } = jet2.prop;
 var Route = class {
-  constructor(router, path, resolver) {
+  constructor(method, path, resolver) {
     const keys2 = [];
     solid.all(this, {
-      router,
       resolver
     }, false);
     cached(this, {}, "regex", (_) => pathToRegexp(path, keys2), false);
@@ -29,7 +77,10 @@ var Route = class {
       this.regex;
       return keys2;
     }, false);
-    solid(this, "path", path);
+    solid.all(this, {
+      method,
+      path
+    });
   }
   decodeParam(param) {
     return param && decodeURIComponent(param);
@@ -47,113 +98,69 @@ var Route = class {
     return params;
   }
   async resolve(req, res) {
-    const params = this.parseParams(req.odata.url.pathname);
+    const { odata } = req;
+    const { url, server: { cors } } = odata;
+    const params = this.parseParams(url.pathname);
     if (!params) {
       return false;
     }
     req.params = params;
-    solid.all(req.odata, {
+    solid.all(odata, {
       route: this,
       params
     });
-    this.addCorsToResponse(res);
-    const result = await this.resolver(req, res);
-    res.end(result);
-    return true;
-  }
-  addCorsToResponse(res) {
-    const cors = this.router.ods.cors;
+    res.setHeader("OData-Version", "4.0");
+    res.setHeader("DataServiceVersion", "4.0");
     if (cors) {
       res.setHeader("Access-Control-Allow-Origin", cors);
     }
+    const result = await this.resolver(req, res);
+    if (Object.jet.is(result)) {
+      res.stateCode = 200;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(result));
+    } else if (result) {
+      res.stateCode = 200;
+      res.end(result);
+    } else {
+      res.stateCode = 204;
+    }
+    return true;
   }
 };
 
-// src/meta/metadata.js
-import builder from "xmlbuilder";
-var buildMetadata = ({ model }) => {
-  const entityTypes = [];
-  for (const typeKey in model.entityTypes) {
-    const entityType = {
-      "@Name": typeKey,
-      Property: []
-    };
-    for (const propKey in model.entityTypes[typeKey]) {
-      const property = model.entityTypes[typeKey][propKey];
-      const finalObject = { "@Name": propKey, "@Type": property.type };
-      if (Object.prototype.hasOwnProperty.call(property, "nullable")) {
-        finalObject["@Nullable"] = property.nullable;
-      }
-      entityType.Property.push(finalObject);
-      if (property.key) {
-        entityType.Key = {
-          PropertyRef: {
-            "@Name": propKey
-          }
-        };
-      }
-    }
-    entityTypes.push(entityType);
-  }
-  const complexTypes = [];
-  for (const typeKey in model.complexTypes) {
-    const complexType = {
-      "@Name": typeKey,
-      Property: []
-    };
-    for (const propKey in model.complexTypes[typeKey]) {
-      const property = model.complexTypes[typeKey][propKey];
-      complexType.Property.push({ "@Name": propKey, "@Type": property.type });
-    }
-    complexTypes.push(complexType);
-  }
-  const container = {
-    "@Name": "Context",
-    EntitySet: []
-  };
-  for (const setKey in model.entitySets) {
-    container.EntitySet.push({
-      "@EntityType": model.entitySets[setKey].entityType,
-      "@Name": setKey
-    });
-  }
-  const returnObject = {
-    "edmx:Edmx": {
-      "@xmlns:edmx": "http://docs.oasis-open.org/odata/ns/edmx",
-      "@Version": "4.0",
-      "edmx:DataServices": {
-        Schema: {
-          "@xmlns": "http://docs.oasis-open.org/odata/ns/edm",
-          "@Namespace": model.namespace,
-          EntityType: entityTypes,
-          EntityContainer: container
-        }
-      }
-    }
-  };
-  if (complexTypes.length) {
-    returnObject["edmx:Edmx"]["edmx:DataServices"].Schema.ComplexType = complexTypes;
-  }
-  return builder.create(returnObject).end({ pretty: true });
-};
-
-// src/meta/collections.js
-var getCollections = (ods) => {
-  const collections = [];
-  for (const key in ods.model.entitySets) {
-    collections.push({
+// src/methods/resolvers/collections.js
+var collections_exports = {};
+__export(collections_exports, {
+  default: () => collections_default
+});
+var collections_default = (req, res) => {
+  const { model, url } = req.odata.server;
+  const collections2 = [];
+  for (const key in model.entitySets) {
+    collections2.push({
       kind: "EntitySet",
       name: key,
       url: key
     });
   }
-  return JSON.stringify({
-    "@odata.context": `${ods.url}/$metadata`,
-    value: collections
-  });
+  return {
+    "@odata.context": `${url}/$metadata`,
+    value: collections2
+  };
 };
 
-// src/methods/query.js
+// src/methods/resolvers/count.js
+var count_exports = {};
+__export(count_exports, {
+  default: () => count_default
+});
+
+// src/methods/resolvers/query.js
+var query_exports = {};
+__export(query_exports, {
+  default: () => query_default
+});
 import parser from "odata-parser";
 import querystring from "querystring";
 import jet3 from "@randajan/jet-core";
@@ -262,7 +269,7 @@ var queryTransform = (query2) => {
   return query2;
 };
 
-// src/methods/query.js
+// src/methods/resolvers/query.js
 var { solid: solid2 } = jet3.prop;
 var _allowedQueryOptions = ["$", "$expand", "$filter", "$format", "$inlinecount", "$select", "$skip", "$top", "$orderby"];
 var parseOptions = (url, params) => {
@@ -284,26 +291,29 @@ var parseOptions = (url, params) => {
     }
   }
   r.collection = params.collection;
+  if (params.count) {
+    r.$count = true;
+  }
   if (params.id) {
     r.$filter._id = params.id.replace(/["']/g, "");
   }
   return r;
 };
-var query = async (req, res) => {
-  const { ods, params, url } = req.odata;
-  const { resolver } = vault2.get(ods.uid);
+var query_default = async (req, res) => {
+  const { odata } = req;
+  const { server, params, url } = odata;
+  const { resolver } = vault2.get(server.uid);
   const { collection } = params;
-  if (!ods.model.entitySets[collection]) {
+  if (!server.model.entitySets[collection]) {
     const error = new Error("Entity set not Found");
     error.code = 404;
     res.odataError(error);
     return;
   }
   const queryOptions = parseOptions(url, params);
-  const result = await resolver("query", req);
-  res.statusCode = 200;
+  solid2(req.odata, "options", queryOptions);
+  const result = await resolver("query", req.odata);
   res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
-  res.setHeader("OData-Version", "4.0");
   let out = {};
   let sAdditionIntoContext = "";
   const oSelect = queryOptions.$select;
@@ -317,7 +327,7 @@ var query = async (req, res) => {
   }
   if (Object.prototype.hasOwnProperty.call(queryOptions.$filter, "_id")) {
     sAdditionIntoContext = sAdditionIntoContext.length > 0 ? "(" + sAdditionIntoContext + ")/$entity" : "/$entity";
-    out["@odata.context"] = ods.url + "/$metadata#" + collection + sAdditionIntoContext;
+    out["@odata.context"] = server.url + "/$metadata#" + collection + sAdditionIntoContext;
     if (result.length > 0) {
       for (const key in result[0]) {
         out[key] = result[0][key];
@@ -327,7 +337,7 @@ var query = async (req, res) => {
   } else {
     sAdditionIntoContext = sAdditionIntoContext.length > 0 ? "(" + sAdditionIntoContext + ")" : "";
     out = {
-      "@odata.context": ods.url + "/$metadata#" + collection + sAdditionIntoContext,
+      "@odata.context": server.url + "/$metadata#" + collection + sAdditionIntoContext,
       value: result
     };
   }
@@ -335,12 +345,23 @@ var query = async (req, res) => {
     out["@odata.count"] = result.count;
     out.value = result.value;
   }
-  ods.pruneResults(collection, out.value);
-  ods.bufferToBase64(collection, out.value);
+  server.pruneResults(collection, out.value);
+  server.bufferToBase64(collection, out.value);
   return JSON.stringify(out);
 };
 
-// src/methods/insert.js
+// src/methods/resolvers/count.js
+import jet4 from "@randajan/jet-core";
+var count_default = (req, res) => {
+  jet4.prop.solid(req.odata.params, "count", true);
+  return query_default(req, res);
+};
+
+// src/methods/resolvers/insert.js
+var insert_exports = {};
+__export(insert_exports, {
+  default: () => insert_default
+});
 var keys = (o) => {
   const res = [];
   const k = Object.keys(o);
@@ -386,7 +407,6 @@ var processBody = (data, { cfg, url }, req, res) => {
       }
       res.statusCode = 201;
       res.setHeader("Content-Type", "application/json;odata.metadata=minimal;odata.streaming=true;IEEE754Compatible=false;charset=utf-8");
-      res.setHeader("OData-Version", "4.0");
       res.setHeader("Location", url + "/" + req.params.collection + "/('" + encodeURI(entity._id) + "')");
       cfg.pruneResults(req.params.collection, entity);
       entity["@odata.id"] = url + "/" + req.params.collection + "('" + entity._id + "')";
@@ -400,9 +420,9 @@ var processBody = (data, { cfg, url }, req, res) => {
     res.odataError(e);
   }
 };
-var insert = (ods, req, res) => {
+var insert_default = (server, req, res) => {
   if (req.body) {
-    return processBody(req.body, ods, req, res);
+    return processBody(req.body, server, req, res);
   }
   let body = "";
   req.on("data", (data) => {
@@ -412,11 +432,108 @@ var insert = (ods, req, res) => {
     }
   });
   req.on("end", () => {
-    return processBody(JSON.parse(body), ods, req, res);
+    return processBody(JSON.parse(body), server, req, res);
   });
 };
 
-// src/methods/update.js
+// src/methods/resolvers/metadata.js
+var metadata_exports = {};
+__export(metadata_exports, {
+  buildMetadata: () => buildMetadata,
+  default: () => metadata_default
+});
+import builder from "xmlbuilder";
+var buildMetadata = (model) => {
+  const entityTypes = [];
+  for (const typeKey in model.entityTypes) {
+    const entityType = {
+      "@Name": typeKey,
+      Property: []
+    };
+    for (const propKey in model.entityTypes[typeKey]) {
+      const property = model.entityTypes[typeKey][propKey];
+      const finalObject = { "@Name": propKey, "@Type": property.type };
+      if (Object.prototype.hasOwnProperty.call(property, "nullable")) {
+        finalObject["@Nullable"] = property.nullable;
+      }
+      entityType.Property.push(finalObject);
+      if (property.key) {
+        entityType.Key = {
+          PropertyRef: {
+            "@Name": propKey
+          }
+        };
+      }
+    }
+    entityTypes.push(entityType);
+  }
+  const complexTypes = [];
+  for (const typeKey in model.complexTypes) {
+    const complexType = {
+      "@Name": typeKey,
+      Property: []
+    };
+    for (const propKey in model.complexTypes[typeKey]) {
+      const property = model.complexTypes[typeKey][propKey];
+      complexType.Property.push({ "@Name": propKey, "@Type": property.type });
+    }
+    complexTypes.push(complexType);
+  }
+  const container = {
+    "@Name": "Context",
+    EntitySet: []
+  };
+  for (const setKey in model.entitySets) {
+    container.EntitySet.push({
+      "@EntityType": model.entitySets[setKey].entityType,
+      "@Name": setKey
+    });
+  }
+  const returnObject = {
+    "edmx:Edmx": {
+      "@xmlns:edmx": "http://docs.oasis-open.org/odata/ns/edmx",
+      "@Version": "4.0",
+      "edmx:DataServices": {
+        Schema: {
+          "@xmlns": "http://docs.oasis-open.org/odata/ns/edm",
+          "@Namespace": model.namespace,
+          EntityType: entityTypes,
+          EntityContainer: container
+        }
+      }
+    }
+  };
+  if (complexTypes.length) {
+    returnObject["edmx:Edmx"]["edmx:DataServices"].Schema.ComplexType = complexTypes;
+  }
+  return builder.create(returnObject).end({ pretty: true });
+};
+var metadata_default = (req, res) => {
+  const result = buildMetadata(req.odata.server.model);
+  res.setHeader("Content-Type", "application/xml");
+  return result;
+};
+
+// src/methods/resolvers/remove.js
+var remove_exports = {};
+__export(remove_exports, {
+  default: () => remove_default
+});
+var remove_default = async (req, res) => {
+  const { server, params, url } = req.odata;
+  const { resolver } = vault.get(server.uid);
+  const query2 = {
+    _id: req.params.id.replace(/\"/g, "").replace(/'/g, "")
+  };
+  await resolver("remove", req);
+  res.statusCode = 204;
+};
+
+// src/methods/resolvers/update.js
+var update_exports = {};
+__export(update_exports, {
+  default: () => update_default
+});
 var removeOdataType2 = (doc) => {
   if (doc instanceof Array) {
     for (const i in doc) {
@@ -452,9 +569,9 @@ var processBody2 = (body, { cfg }, req, res) => {
     res.odataError(e);
   }
 };
-var update = (ods, req, res) => {
+var update_default = (server, req, res) => {
   if (req.body) {
-    return processBody2(req.body, ods, req, res);
+    return processBody2(req.body, server, req, res);
   }
   let body = "";
   req.on("data", (data) => {
@@ -464,177 +581,65 @@ var update = (ods, req, res) => {
     }
   });
   req.on("end", () => {
-    return processBody2(JSON.parse(body), ods, req, res);
+    return processBody2(JSON.parse(body), server, req, res);
   });
 };
 
-// src/methods/remove.js
-var remove = async (req, res) => {
-  const { ods, params, url } = req.odata;
-  const { resolver } = vault.get(ods.uid);
-  const query2 = {
-    _id: req.params.id.replace(/\"/g, "").replace(/'/g, "")
-  };
-  await resolver("remove", req);
-  res.statusCode = 204;
-};
+// import-glob:./resolvers/**
+var modules = [collections_exports, count_exports, insert_exports, metadata_exports, query_exports, remove_exports, update_exports];
+var __default = modules;
+var filenames = ["./resolvers/collections.js", "./resolvers/count.js", "./resolvers/insert.js", "./resolvers/metadata.js", "./resolvers/query.js", "./resolvers/remove.js", "./resolvers/update.js"];
 
-// src/class/Router.js
-var { solid: solid3, virtual: virtual2 } = jet4.prop;
-var Router = class {
-  constructor(ods, prefix) {
-    solid3.all(this, {
-      ods
-    }, false);
-    solid3.all(this, {
-      prefix,
-      routes: {}
-    });
-    this.get("/", (req, res) => {
-      const result = getCollections(ods);
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/json");
-      return result;
-    });
-    this.get("/$metadata", (req, res) => {
-      const result = buildMetadata(ods.cfg);
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/xml");
-      res.setHeader("DataServiceVersion", "4.0");
-      res.setHeader("OData-Version", "4.0");
-      return result;
-    });
-    this.get("/:collection/$count", (req, res) => {
-      solid3(req.odata.params, "$count", true);
-      return query(req, res);
-    });
-    this.get("/:collection\\(:id\\)", query);
-    this.get("/:collection", query);
-    this.patch("/:collection\\(:id\\)", (req, res) => {
-      return update(ods, req, res);
-    });
-    this.delete("/:collection\\(:id\\)", remove);
-    this.post("/:collection", (req, res) => {
-      return insert(ods, req, res);
-    });
-    if (ods.cors) {
-      this.options("/(.*)", (req, res) => {
-        res.statusCode = 200;
-        res.setHeader("Access-Control-Allow-Origin", ods.cors);
-      });
-    }
-  }
-  async dispatch(req, res) {
-    const method = req.method.toLowerCase();
-    for (const route of this.routes[method]) {
-      if (await route.resolve(req, res)) {
-        return true;
-      }
-    }
-    throw Error({ code: 404, msg: "Not found" });
-  }
-};
-methods.forEach((method) => {
-  Router.prototype[method] = function(path, exe) {
-    const list = this.routes[method] || (this.routes[method] = []);
-    const route = new Route(this, path, exe);
-    list.push(route);
-    return route;
-  };
+// src/methods/index.js
+var _prefix = "./resolvers/";
+var _suffix = ".js";
+var methods = {};
+var methods_default = methods;
+filenames.forEach((pathname, index) => {
+  const name = pathname.substring(_prefix.length).slice(0, -_suffix.length);
+  methods[name] = __default[index].default;
 });
 
-// src/validations/prune.js
-var _prune = (doc, model, type) => {
-  if (doc instanceof Array) {
-    for (const i in doc) {
-      _prune(doc[i], model, type);
-    }
-    return;
-  }
-  for (const prop in doc) {
-    if (!prop || doc[prop] === void 0 || prop.toString().substring(0, 6) === "@odata") {
-      continue;
-    }
-    const propDef = type[prop];
-    if (!propDef) {
-      delete doc[prop];
-      continue;
-    }
-    if (propDef.type.indexOf("Collection") === 0) {
-      if (propDef.type.indexOf("Collection(Edm") === 0) {
-        continue;
-      }
-      let complexTypeName = propDef.type.replace("Collection(" + model.namespace + ".", "");
-      complexTypeName = complexTypeName.substring(0, complexTypeName.length - 1);
-      const complexType = model.complexTypes[complexTypeName];
-      if (!complexType) {
-        throw new Error(`Complex type ${complexTypeName} was not found.`);
-      }
-      for (const i in doc[prop]) {
-        _prune(doc[prop][i], model, complexType);
-      }
-      continue;
-    }
-    if (propDef.type.indexOf("Edm") !== 0) {
-      const complexTypeName = propDef.type.replace(model.namespace + ".", "");
-      const complexType = model.complexTypes[complexTypeName];
-      if (!complexType) {
-        throw new Error(`Complex type ${complexTypeName} was not found.`);
-      }
-      _prune(doc[prop], model, complexType);
-    }
-  }
-};
-var prune = ({ model }, collection, docs) => {
-  const entitySet = model.entitySets[collection];
-  const entityType = model.entityTypes[entitySet.entityType.replace(model.namespace + ".", "")];
-  _prune(docs, model, entityType);
-};
-
-// src/class/ODataServer.js
-var { solid: solid4, virtual: virtual3 } = jet5.prop;
-var ODataServer = class extends EventEmitter {
+// src/class/Server.js
+var { query, insert, update, remove, collections, metadata, count } = methods_default;
+var { solid: solid3, virtual: virtual2 } = jet5.prop;
+var Server = class {
   constructor(config = {}) {
-    super();
     const { url, model, cors, resolver } = config;
     const [uid, _p] = vault2.set({
       url,
       model,
       cors,
-      routers: {},
+      routes: {},
       resolver
     });
-    solid4.all(this, {
+    solid3.all(this, {
       uid
     }, false);
-    virtual3.all(this, {
+    virtual2.all(this, {
       url: (_) => _p.url,
       model: (_) => _p.model,
       cors: (_) => _p.cors
     });
-    this.cfg = {
-      afterRead: function() {
-      },
-      beforeQuery: function(col, query2, req, cb) {
-        cb();
-      },
-      executeQuery: ODataServer.prototype.executeQuery.bind(this),
-      beforeInsert: function(col, query2, req, cb) {
-        cb();
-      },
-      executeInsert: ODataServer.prototype.executeInsert.bind(this),
-      beforeUpdate: function(col, query2, update2, req, cb) {
-        cb();
-      },
-      executeUpdate: ODataServer.prototype.executeUpdate.bind(this),
-      beforeRemove: function(col, query2, req, cb) {
-        cb();
-      },
-      executeRemove: ODataServer.prototype.executeRemove.bind(this),
-      base64ToBuffer: ODataServer.prototype.base64ToBuffer.bind(this),
-      bufferToBase64: ODataServer.prototype.bufferToBase64.bind(this),
-      pruneResults: ODataServer.prototype.pruneResults.bind(this)
-    };
+    this.route("get", "/", collections);
+    this.route("get", "/$metadata", metadata);
+    this.route("get", "/:collection/$count", count);
+    this.route("get", "/:collection\\(:id\\)", query);
+    this.route("get", "/:collection", query);
+    this.route("patch", "/:collection\\(:id\\)", update);
+    this.route("delete", "/:collection\\(:id\\)", remove);
+    this.route("post", "/:collection", insert);
+    if (cors) {
+      this.route("options", "/(.*)", () => {
+      });
+    }
+  }
+  route(method, path, resolver) {
+    const { routes } = vault2.get(this.uid);
+    const list = routes[method] || (routes[method] = []);
+    const route = new Route(method, path, resolver);
+    list.push(route);
+    return route;
   }
   async resolve(req, res) {
     const _p = vault2.get(this.uid);
@@ -646,16 +651,20 @@ var ODataServer = class extends EventEmitter {
       _p.url = req.protocol + "://" + req.get("host") + path;
     }
     ;
-    const prefix = parseUrl(_p.url).pathname;
-    const router = _p.routers[prefix] || (_p.routers[prefix] = new Router(this, prefix));
-    solid4(req, "odata", solid4.all({}, {
-      ods: this,
-      router,
+    solid3(req, "odata", solid3.all({}, {
+      server: this,
       url: parseUrl(req.originalUrl || req.url, true)
     }));
-    return router.dispatch(req, res);
+    const method = req.method.toLowerCase();
+    const routes = _p.routes[method] || [];
+    for (const route of routes) {
+      if (await route.resolve(req, res)) {
+        return true;
+      }
+    }
+    throw { code: 404, msg: "Not found" };
   }
-  getHandler() {
+  getResolver() {
     return (req, res) => {
       this.resolve(req, res).catch((e) => {
         const error = {
@@ -670,82 +679,6 @@ var ODataServer = class extends EventEmitter {
         res.end(JSON.stringify({ error }));
       });
     };
-  }
-  insert(fn) {
-    this.cfg.insert = fn.bind(this);
-    return this;
-  }
-  beforeInsert(fn) {
-    if (fn.length === 3) {
-      console.warn("Listener function should accept request parameter.");
-      const origFn = fn;
-      fn = function(col, doc, req, cb) {
-        origFn(col, doc, cb);
-      };
-    }
-    this.cfg.beforeInsert = fn.bind(this);
-    return this;
-  }
-  executeInsert(col, doc, req, cb) {
-    const self = this;
-    this.cfg.beforeInsert(col, doc, req, function(err) {
-      if (err) {
-        return cb(err);
-      }
-      self.cfg.insert(col, doc, req, cb);
-    });
-  }
-  update(fn) {
-    this.cfg.update = fn.bind(this);
-    return this;
-  }
-  beforeUpdate(fn) {
-    if (fn.length === 4) {
-      console.warn("Listener function should accept request parameter.");
-      const origFn = fn;
-      fn = function(col, query2, update2, req, cb) {
-        origFn(col, query2, update2, cb);
-      };
-    }
-    this.cfg.beforeUpdate = fn.bind(this);
-    return this;
-  }
-  executeUpdate(col, query2, update2, req, cb) {
-    const self = this;
-    this.cfg.beforeUpdate(col, query2, update2, req, function(err) {
-      if (err) {
-        return cb(err);
-      }
-      self.cfg.update(col, query2, update2, req, cb);
-    });
-  }
-  remove(fn) {
-    this.cfg.remove = fn.bind(this);
-    return this;
-  }
-  beforeRemove(fn) {
-    if (fn.length === 3) {
-      console.warn("Listener function should accept request parameter.");
-      const origFn = fn;
-      fn = function(col, query2, req, cb) {
-        origFn(col, query2, cb);
-      };
-    }
-    this.cfg.beforeRemove = fn.bind(this);
-    return this;
-  }
-  executeRemove(col, query2, req, cb) {
-    const self = this;
-    this.cfg.beforeRemove(col, query2, req, function(err) {
-      if (err) {
-        return cb(err);
-      }
-      self.cfg.remove(col, query2, req, cb);
-    });
-  }
-  afterRead(fn) {
-    this.cfg.afterRead = fn;
-    return this;
   }
   pruneResults(collection, res) {
     prune(this, collection, res);
@@ -763,7 +696,7 @@ var ODataServer = class extends EventEmitter {
         continue;
       }
       if (propDef.type === "Edm.Binary") {
-        doc[prop] = Buffer.from(doc[prop], "base64");
+        doc[prop] = Buffer2.from(doc[prop], "base64");
       }
     }
   }
@@ -782,7 +715,7 @@ var ODataServer = class extends EventEmitter {
           continue;
         }
         if (propDef.type === "Edm.Binary") {
-          if (!Buffer.isBuffer(doc[prop]) && !doc[prop].length) {
+          if (!Buffer2.isBuffer(doc[prop]) && !doc[prop].length) {
             let obj = doc[prop];
             obj = obj.data || obj;
             doc[prop] = Object.keys(obj).map(function(key) {
@@ -792,7 +725,7 @@ var ODataServer = class extends EventEmitter {
           if (doc[prop]._bsontype === "Binary") {
             doc[prop] = doc[prop].buffer;
           }
-          doc[prop] = Buffer.from(doc[prop]).toString("base64");
+          doc[prop] = Buffer2.from(doc[prop]).toString("base64");
         }
       }
     }
@@ -800,11 +733,8 @@ var ODataServer = class extends EventEmitter {
 };
 
 // src/index.js
-var src_default = (options) => new ODataServer(options);
+var src_default = (options) => new Server(options);
 export {
-  buildMetadata,
-  src_default as default,
-  prune,
-  queryTransform
+  src_default as default
 };
 //# sourceMappingURL=index.js.map

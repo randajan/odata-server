@@ -1,3 +1,4 @@
+import { log } from "@randajan/simple-lib/node";
 import ODataServer from "../../dist/index.js";
 import mongoAdapter from "../../dist/adapter/mongo.js";
 
@@ -15,6 +16,7 @@ const getMongo = async (dbUrl, options)=>{
 
     if (_mongos[dbUrl]) { return _mongos[dbUrl]; }
     const mongo = _mongos[dbUrl] = await MongoClient.connect(dbUrl, options);
+    process.on("exit", _=>mongo.close());
     mongo.on("close", _=>{ delete _mongos[dbUrl]; });
 
     return mongo;
@@ -53,4 +55,4 @@ export const mongoApi = ODataServer({
 });
 
 
-http.createServer(mongoApi.getHandler()).listen(1337);
+http.createServer(mongoApi.getResolver()).listen(1337);

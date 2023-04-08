@@ -1,6 +1,6 @@
-export const remove = async (req, res) => {
-  const { ods, params, url } = req.odata;
-  const { resolver } = vault.get(ods.uid);
+export default async (req, res) => {
+  const { server, params, url } = req.odata;
+  const { resolver } = vault.get(server.uid);
 
   const query = {
     _id: req.params.id.replace(/\"/g, '').replace(/'/g, '')

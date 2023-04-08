@@ -1,21 +1,21 @@
 import { parse as parseUrl } from "url";
-import { EventEmitter } from "events";
 import { Buffer } from "safe-buffer";
 import jet from "@randajan/jet-core";
 
 import { escapeRegExp, vault } from "../tools";
 
-
-import { Router } from "./Router";
 import { prune } from '../validations/prune.js';
+import { Route } from "./Route";
 
+import methods from "../methods";
+
+const { query, insert, update, remove, collections, metadata, count } = methods;
 
 
 const { solid, virtual } = jet.prop;
 
-export class ODataServer extends EventEmitter {
+export class Server {
   constructor(config={}) {
-    super();
 
     const { url, model, cors, resolver } = config;
 
@@ -23,9 +23,8 @@ export class ODataServer extends EventEmitter {
       url,
       model,
       cors,
-      routers:{},
+      routes:{},
       resolver
-
     });
 
     solid.all(this, {
@@ -36,8 +35,29 @@ export class ODataServer extends EventEmitter {
       url:_=>_p.url,
       model:_=>_p.model,
       cors:_=>_p.cors
-    })
+    });
 
+    this.route("get", '/', collections);
+    this.route("get", '/\$metadata', metadata);
+
+    this.route("get", '/:collection/\$count', count);
+    this.route("get", '/:collection\\(:id\\)', query);
+    this.route("get", '/:collection', query);
+
+    this.route("patch", '/:collection\\(:id\\)', update);
+    this.route("delete", '/:collection\\(:id\\)', remove);
+    this.route("post", '/:collection', insert);
+
+    if (cors) { this.route("options", '/(.*)', ()=>{}); }
+
+  }
+
+  route(method, path, resolver) {
+    const { routes } = vault.get(this.uid);
+    const list = routes[method] || (routes[method] = []);
+    const route = new Route(method, path, resolver);
+    list.push(route);
+    return route;
   }
 
   async resolve(req, res) {
@@ -49,24 +69,28 @@ export class ODataServer extends EventEmitter {
     // If mounted in express, trim off the subpath (req.url) giving us just the base path
     const path = (req.originalUrl || '/').replace(new RegExp(escapeRegExp(req.url) + '$'), '')
     if (!_p.url) { _p.url = (req.protocol + '://' + req.get('host') + path); };
-  
-    const prefix = parseUrl(_p.url).pathname;
-    const router = _p.routers[prefix] || (_p.routers[prefix] = new Router(this, prefix)); //cache routers
 
     solid(req, "odata", solid.all({}, { //create custom context space at request
-      ods:this,
-      router,
+      server:this,
       url:parseUrl(req.originalUrl || req.url, true)
     })); 
     
-    return router.dispatch(req, res);
+    const method = req.method.toLowerCase();
+    const routes = _p.routes[method] || [];
+
+    for (const route of routes) {
+      if (await route.resolve(req, res)) { return true; }
+    }
+
+    throw { code: 404, msg: "Not found" };
+    
   }
 
-  getHandler() {
+  getResolver() {
     return (req, res)=>{
       this.resolve(req, res).catch(e=>{
 
-        //ods.emit('odata-error', e)
+        //this.emit('odata-error', e)
         const error = {
           code:e?.code || 500,
           message: e?.msg || e?.message || "Unknown error",

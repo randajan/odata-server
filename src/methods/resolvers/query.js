@@ -2,8 +2,8 @@ import parser from 'odata-parser';
 import querystring from 'querystring';
 import jet from "@randajan/jet-core";
 
-import { queryTransform } from '../validations/queryTransform.js';
-import { vault } from '../tools.js';
+import { queryTransform } from '../../validations/queryTransform.js';
+import { vault } from '../../tools.js';
 
 const { solid } = jet.prop;
 
@@ -26,19 +26,20 @@ const parseOptions = (url, params) => {
   }
 
   r.collection = params.collection;
-
+  if (params.count) { r.$count = true; }
   if (params.id) { r.$filter._id = params.id.replace(/["']/g, ''); }
 
   return r;
 }
 
 
-export const query = async (req, res) => {
-  const { ods, params, url } = req.odata;
-  const { resolver } = vault.get(ods.uid);
+export default async (req, res) => {
+  const { odata } = req;
+  const { server, params, url } = odata;
+  const { resolver } = vault.get(server.uid);
   const { collection } = params;
 
-  if (!ods.model.entitySets[collection]) {
+  if (!server.model.entitySets[collection]) {
     const error = new Error('Entity set not Found');
     error.code = 404;
     res.odataError(error);
@@ -47,16 +48,16 @@ export const query = async (req, res) => {
 
   const queryOptions = parseOptions(url, params);
 
-  const result = await resolver("query", req);
+  solid(req.odata, "options", queryOptions);
 
-  res.statusCode = 200
+  const result = await resolver("query", req.odata);
+
   res.setHeader('Content-Type', 'application/json;odata.metadata=minimal')
-  res.setHeader('OData-Version', '4.0')
 
-  let out = {}
+  let out = {};
   // define the @odataContext in case of selection
-  let sAdditionIntoContext = ''
-  const oSelect = queryOptions.$select
+  let sAdditionIntoContext = '';
+  const oSelect = queryOptions.$select;
   
   if (oSelect) {
     const countProp = Object.keys(oSelect).length
@@ -69,7 +70,7 @@ export const query = async (req, res) => {
 
   if (Object.prototype.hasOwnProperty.call(queryOptions.$filter, '_id')) {
     sAdditionIntoContext = sAdditionIntoContext.length > 0 ? '(' + sAdditionIntoContext + ')/$entity' : '/$entity'
-    out['@odata.context'] = ods.url + '/$metadata#' + collection + sAdditionIntoContext
+    out['@odata.context'] = server.url + '/$metadata#' + collection + sAdditionIntoContext
     if (result.length > 0) {
       for (const key in result[0]) {
         out[key] = result[0][key]
@@ -80,7 +81,7 @@ export const query = async (req, res) => {
   } else {
     sAdditionIntoContext = sAdditionIntoContext.length > 0 ? '(' + sAdditionIntoContext + ')' : ''
     out = {
-      '@odata.context': ods.url + '/$metadata#' + collection + sAdditionIntoContext,
+      '@odata.context': server.url + '/$metadata#' + collection + sAdditionIntoContext,
       value: result
     }
   }
@@ -90,8 +91,8 @@ export const query = async (req, res) => {
     out.value = result.value
   }
 
-  ods.pruneResults(collection, out.value);
-  ods.bufferToBase64(collection, out.value);
+  server.pruneResults(collection, out.value);
+  server.bufferToBase64(collection, out.value);
 
   return JSON.stringify(out);
 }
