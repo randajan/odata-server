@@ -2,7 +2,7 @@
 require('should')
 const request = require('supertest')
 const http = require('http')
-const ODataServer = require('../index.js')
+const ODataServer = require('../../../demo/src/index.js')
 const model = require('./model.js')
 
 describe('odata server', function () {

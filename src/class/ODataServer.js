@@ -1,293 +1,95 @@
-import { EventEmitter } from "events";          //const Emitter = require('events').EventEmitter
-import url from "url";                            //const url = require('url')
-import { Buffer } from "safe-buffer";             //const Buffer = require('safe-buffer').Buffer
-import { Router } from "./Router";
-// const metadata = require('./metadata.js')
-// const collections = require('./collections.js')
-// const query = require('./query.js')
-// const insert = require('./insert.js')
-// const update = require('./update.js')
-// const remove = require('./remove.js')
-// const prune = require('./prune.js')
+import { parse as parseUrl } from "url";
+import { EventEmitter } from "events";
+import { Buffer } from "safe-buffer";
+import jet from "@randajan/jet-core";
 
+import { escapeRegExp, vault } from "../tools";
+
+
+import { Router } from "./Router";
+import { prune } from '../validations/prune.js';
+
+
+
+const { solid, virtual } = jet.prop;
 
 export class ODataServer extends EventEmitter {
-  constructor(serviceUrl) {
-    this.serviceUrl = serviceUrl
+  constructor(config={}) {
+    super();
 
-    this.cfg = {
-      serviceUrl,
-      afterRead: function () {},
-      beforeQuery: function (col, query, req, cb) { cb() },
-      executeQuery: ODataServer.prototype.executeQuery.bind(this),
-      beforeInsert: function (col, query, req, cb) { cb() },
-      executeInsert: ODataServer.prototype.executeInsert.bind(this),
-      beforeUpdate: function (col, query, update, req, cb) { cb() },
-      executeUpdate: ODataServer.prototype.executeUpdate.bind(this),
-      beforeRemove: function (col, query, req, cb) { cb() },
-      executeRemove: ODataServer.prototype.executeRemove.bind(this),
-      base64ToBuffer: ODataServer.prototype.base64ToBuffer.bind(this),
-      bufferToBase64: ODataServer.prototype.bufferToBase64.bind(this),
-      pruneResults: ODataServer.prototype.pruneResults.bind(this),
-      addCorsToResponse: ODataServer.prototype.addCorsToResponse.bind(this)
-    }
+    const { url, model, cors, resolver } = config;
+
+    const [ uid, _p ] = vault.set({
+      url,
+      model,
+      cors,
+      routers:{},
+      resolver
+
+    });
+
+    solid.all(this, {
+      uid
+    }, false);
+
+    virtual.all(this, {
+      url:_=>_p.url,
+      model:_=>_p.model,
+      cors:_=>_p.cors
+    })
+
   }
 
-  handle(req, res) {
-    if (!this.cfg.serviceUrl && !req.protocol) {
-      throw new Error('Unable to determine service url from the express request or value provided in the ODataServer constructor.')
-    }
-  
-    function escapeRegExp (str) {
-      return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&')
+  async resolve(req, res) {
+    const _p = vault.get(this.uid);
+    if (!_p.url && !req.protocol) {
+      throw Error('Unable to determine server url from the request or value provided in the ODataServer constructor.')
     }
   
     // If mounted in express, trim off the subpath (req.url) giving us just the base path
     const path = (req.originalUrl || '/').replace(new RegExp(escapeRegExp(req.url) + '$'), '')
-    this.cfg.serviceUrl = this.serviceUrl ? this.serviceUrl : (req.protocol + '://' + req.get('host') + path)
+    if (!_p.url) { _p.url = (req.protocol + '://' + req.get('host') + path); };
   
-    const prefix = url.parse(this.cfg.serviceUrl).pathname // eslint-disable-line
-    if (!this.router || (prefix !== this.router.prefix)) {
-      this.router = new Router(prefix)
-      this._initializeRoutes()
-    }
-  
-    this.router.dispatch(req, res)
+    const prefix = parseUrl(_p.url).pathname;
+    const router = _p.routers[prefix] || (_p.routers[prefix] = new Router(this, prefix)); //cache routers
+
+    solid(req, "odata", solid.all({}, { //create custom context space at request
+      ods:this,
+      router,
+      url:parseUrl(req.originalUrl || req.url, true)
+    })); 
+    
+    return router.dispatch(req, res);
   }
 
-  _initializeRoutes() {
-    const self = this
-    this.router.get('/\$metadata', function (req, res) {
-      const result = metadata(self.cfg)
-  
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'application/xml')
-      res.setHeader('DataServiceVersion', '4.0')
-      res.setHeader('OData-Version', '4.0')
-      self.cfg.addCorsToResponse(res)
-  
-      return res.end(result)
-    })
-    this.router.get('/:collection/\$count', function (req, res) {
-      req.params.$count = true
-      query(self.cfg, req, res)
-    })
-    this.router.get('/:collection\\(:id\\)', function (req, res) {
-      query(self.cfg, req, res)
-    })
-    this.router.get('/:collection', function (req, res) {
-      query(self.cfg, req, res)
-    })
-    this.router.get('/', function (req, res) {
-      const result = collections(self.cfg)
-  
-      res.statusCode = 200
-      res.setHeader('Content-Type', 'application/json')
-      self.cfg.addCorsToResponse(res)
-  
-      return res.end(result)
-    })
-    this.router.post('/:collection', function (req, res) {
-      insert(self.cfg, req, res)
-    })
-    this.router.patch('/:collection\\(:id\\)', function (req, res) {
-      update(self.cfg, req, res)
-    })
-    this.router.delete('/:collection\\(:id\\)', function (req, res) {
-      remove(self.cfg, req, res)
-    })
-  
-    if (this.cfg.cors) {
-      this.router.options('/(.*)', function (req, res) {
-        res.statusCode = 200
-        res.setHeader('Access-Control-Allow-Origin', self.cfg.cors)
-        res.end()
-      })
-    }
-  
-    this.router.error(function (req, res, error) {
-      function def (e) {
-        self.emit('odata-error', e)
-  
-        res.statusCode = (error.code && error.code >= 100 && error.code < 600) ? error.code : 500
-        res.setHeader('Content-Type', 'application/json')
-        self.cfg.addCorsToResponse(res)
-  
-        res.end(JSON.stringify({
-          error: {
-            code: error.code || 500,
-            message: e.message,
-            stack: e.stack,
-            target: req.url,
-            details: []
-          },
-          innererror: { }
-        }))
-      }
-      if (self.cfg.error) {
-        self.cfg.error(req, res, error, def)
-      } else {
-        def(error)
-      }
-    })
-  }
+  getHandler() {
+    return (req, res)=>{
+      this.resolve(req, res).catch(e=>{
 
-  error(fn) {
-    this.cfg.error = fn.bind(this)
-    return this
-  }
-
-  query(fn) {
-    this.cfg.query = fn.bind(this)
-    return this
-  }
-
-  cors(domains) {
-    this.cfg.cors = domains
-    return this
-  }
-
-  beforeQuery(fn) {
-    if (fn.length === 3) {
-      console.warn('Listener function should accept request parameter.')
-      const origFn = fn
-      fn = function (col, query, req, cb) {
-        origFn(col, query, cb)
-      }
-    }
-  
-    this.cfg.beforeQuery = fn.bind(this)
-    return this
-  }
-
-  executeQuery(col, query, req, cb) {
-    const self = this
-  
-    this.cfg.beforeQuery(col, query, req, function (err) {
-      if (err) {
-        return cb(err)
-      }
-  
-      self.cfg.query(col, query, req, function (err, res) {
-        if (err) {
-          return cb(err)
+        //ods.emit('odata-error', e)
+        const error = {
+          code:e?.code || 500,
+          message: e?.msg || e?.message || "Unknown error",
+          stack: e?.stack,
+          target: req.url,
+          details: []
         }
-  
-        self.cfg.afterRead(col, res, req)
-        cb(null, res)
-      })
-    })
-  }
 
-  insert(fn) {
-    this.cfg.insert = fn.bind(this)
-    return this
-  }
-  
-  beforeInsert(fn) {
-    if (fn.length === 3) {
-      console.warn('Listener function should accept request parameter.')
-      const origFn = fn
-      fn = function (col, doc, req, cb) {
-        origFn(col, doc, cb)
-      }
+        res.statusCode = error.code;
+        res.setHeader('Content-Type', 'application/json');
+
+        res.end(JSON.stringify({ error }))
+
+      });
     }
-  
-    this.cfg.beforeInsert = fn.bind(this)
-    return this
-  }
-
-  executeInsert(col, doc, req, cb) {
-    const self = this
-    this.cfg.beforeInsert(col, doc, req, function (err) {
-      if (err) {
-        return cb(err)
-      }
-  
-      self.cfg.insert(col, doc, req, cb)
-    })
-  }
-
-  update(fn) {
-    this.cfg.update = fn.bind(this)
-    return this
-  }
-
-  beforeUpdate(fn) {
-    if (fn.length === 4) {
-      console.warn('Listener function should accept request parameter.')
-      const origFn = fn
-      fn = function (col, query, update, req, cb) {
-        origFn(col, query, update, cb)
-      }
-    }
-  
-    this.cfg.beforeUpdate = fn.bind(this)
-    return this
-  }
-
-  executeUpdate(col, query, update, req, cb) {
-    const self = this
-  
-    this.cfg.beforeUpdate(col, query, update, req, function (err) {
-      if (err) {
-        return cb(err)
-      }
-  
-      self.cfg.update(col, query, update, req, cb)
-    })
-  }
-
-  remove(fn) {
-    this.cfg.remove = fn.bind(this)
-    return this
-  }
-
-  beforeRemove(fn) {
-    if (fn.length === 3) {
-      console.warn('Listener function should accept request parameter.')
-      const origFn = fn
-      fn = function (col, query, req, cb) {
-        origFn(col, query, cb)
-      }
-    }
-  
-    this.cfg.beforeRemove = fn.bind(this)
-    return this
-  }
-
-  executeRemove(col, query, req, cb) {
-    const self = this
-    this.cfg.beforeRemove(col, query, req, function (err) {
-      if (err) {
-        return cb(err)
-      }
-  
-      self.cfg.remove(col, query, req, cb)
-    })
-  }
-
-  afterRead(fn) {
-    this.cfg.afterRead = fn
-    return this
-  }
-
-  model(model) {
-    this.cfg.model = model
-    return this
-  }
-
-  adapter(adapter) {
-    adapter(this)
-    return this
   }
 
   pruneResults(collection, res) {
-    prune(this.cfg.model, collection, res)
+    prune(this, collection, res)
   }
 
   base64ToBuffer(collection, doc) {
-    const model = this.cfg.model
+    const model = this.model
     const entitySet = model.entitySets[collection]
     const entityType = model.entityTypes[entitySet.entityType.replace(model.namespace + '.', '')]
   
@@ -309,7 +111,7 @@ export class ODataServer extends EventEmitter {
   }
 
   bufferToBase64(collection, res) {
-    const model = this.cfg.model
+    const model = this.model
     const entitySet = model.entitySets[collection]
     const entityType = model.entityTypes[entitySet.entityType.replace(model.namespace + '.', '')]
   
@@ -342,12 +144,6 @@ export class ODataServer extends EventEmitter {
           doc[prop] = Buffer.from(doc[prop]).toString('base64')
         }
       }
-    }
-  }
-
-  addCorsToResponse(res) {
-    if (this.cfg.cors) {
-      res.setHeader('Access-Control-Allow-Origin', this.cfg.cors)
     }
   }
 

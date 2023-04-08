@@ -91,6 +91,11 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
+"@randajan/jet-core@^3.1.6":
+  version "3.1.6"
+  resolved "https://registry.yarnpkg.com/@randajan/jet-core/-/jet-core-3.1.6.tgz#50351f4dc010025e5bc9dd62aedfb3b92de44eab"
+  integrity sha512-JyjUdxq3Dus3RxnsyAups+RsUO8cHpWq85h1u6FB+jKSrs6dHGxxtHmIFG6B24uSzGT52umeIDAf+d4yzaJbhg==
+
 "@randajan/simple-lib@2.0.3":
   version "2.0.3"
   resolved "https://registry.yarnpkg.com/@randajan/simple-lib/-/simple-lib-2.0.3.tgz#4fb7dee2c52ec1e518c0926e9854ef9c741b03f8"

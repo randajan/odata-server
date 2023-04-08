@@ -1,6 +1,6 @@
 /* eslint-env mocha */
 const should = require('should')
-const transform = require('../lib/queryTransform.js')
+const transform = require('../../src/.old/lib/queryTransform.js')
 
 describe('transform', function () {
   it('$top to $limit', function () {

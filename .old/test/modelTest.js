@@ -1,4 +1,4 @@
-module.exports = {
+export const modelTest = {
   namespace: 'jsreport',
   entityTypes: {
     UserType: {

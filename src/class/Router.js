@@ -1,63 +1,92 @@
-import url from 'url';
-import pathToRegexp from 'path-to-regexp';
 import methods from 'methods';
+import jet from "@randajan/jet-core";
 
-const decode = val=>val && decodeURIComponent(val);
+import { Route } from "./Route.js";
+
+import { buildMetadata } from '../meta/metadata.js';
+import { getCollections } from '../meta/collections.js';
+
+import { query } from '../methods/query.js';
+import { insert } from '../methods/insert.js';
+import { update } from '../methods/update.js';
+import { remove } from '../methods/remove.js';
+
+const { solid, virtual } = jet.prop;
 
 export class Router {
-  constructor(prefix) {
-    this.routes = {};
-    this.prefix = prefix === '/' ? '' : prefix;
-    methods.forEach(method=>this.routes[method] = []);
-  }
+  constructor(ods, prefix) {
+    solid.all(this, {
+      ods,
+    }, false);
 
-  error(fn) {
-    this._errFn = fn;
-  }
+    solid.all(this, {
+      prefix,
+      routes: {}
+    })
 
-  dispatch(req, res) {
-    const m = req.method.toLowerCase()
-    res.odataError = (err) => this._errFn(req, res, err);
-  
-    const { pathname } = url.parse(req.originalUrl || req.url);
-    let match = false;
-  
-    for (const el of this.routes[m]) {
-      const keys = [];
-      const re = pathToRegexp(el.route, keys);
-      const ex = re.exec(pathname);
-  
-      if (!ex) { continue; }
+    this.get('/', (req, res) => {
+      const result = getCollections(ods);
 
-      match = true;
-      const args = ex.slice(1).map(decode);
-      req.params = {};
-      for (let j = 0; j < keys.length; j++) {
-        req.params[keys[j].name] = args[j]
-      }
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
 
-      try {
-        el.fn(req, res)
-      } catch (e) {
-        this._errFn(req, res, e)
-      }
+      return result;
+    });
 
-      break;
+    this.get('/\$metadata', (req, res) => {
+      const result = buildMetadata(ods);
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/xml');
+      res.setHeader('DataServiceVersion', '4.0');
+      res.setHeader('OData-Version', '4.0');
+
+      return result;
+    });
+
+    this.get('/:collection/\$count', (req, res) => {
+      solid(req.odata.params, "$count", true);
+      return query(req, res);
+    });
+    this.get('/:collection\\(:id\\)', query);
+    this.get('/:collection', query);
+
+    this.patch('/:collection\\(:id\\)', update);
+    this.delete('/:collection\\(:id\\)', remove);
+    this.post('/:collection', insert);
+
+    if (ods.cors) {
+      this.options('/(.*)', (req, res) => {
+        res.statusCode = 200;
+      });
     }
-  
-    if (!match) {
-      const error = new Error('Not Found');
-      error.code = 404;
-      res.odataError(error);
-    }
+
   }
+
+  async dispatch(req, res) {
+    const method = req.method.toLowerCase()
+
+    for (const route of this.routes[method]) {
+      if (await route.resolve(req, res)) { return true; }
+    }
+
+    throw Error({ code: 404, msg: "Not found" });
+
+  }
+
+  addCors(res) {
+    const cors = this.ods.cors;
+    if (cors) { res.setHeader('Access-Control-Allow-Origin', cors); }
+  }
+
+
 }
 
-methods.forEach(m=>{
-  Router.prototype[m] = function (route, fn) {
-    this.routes[m].push({
-      route: this.prefix + route,
-      fn
-    })
+methods.forEach(method => {
+  Router.prototype[method] = function (path, exe) {
+    const list = this.routes[method] || (this.routes[method] = []);
+    const route = new Route(this, path, exe);
+    list.push(route);
+    return route;
   }
 });

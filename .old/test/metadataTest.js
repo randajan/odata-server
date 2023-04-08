@@ -1,6 +1,7 @@
-/* eslint-env mocha */
+import dist from "../../../dist/index.js";
+
 require('should')
-const model = require('./model.js')
+const model = require('./modelTest.js')
 const metadata = require('../lib/metadata.js')
 const xml2js = require('xml2js')
 

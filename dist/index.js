@@ -1,69 +1,618 @@
 // src/class/ODataServer.js
+import { parse as parseUrl } from "url";
 import { EventEmitter } from "events";
-import url2 from "url";
 import { Buffer } from "safe-buffer";
+import jet5 from "@randajan/jet-core";
+
+// src/tools.js
+import jet from "@randajan/jet-core";
+var vault2 = jet.vault("ODataServer");
+var escapeRegExp = (str) => str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
 
 // src/class/Router.js
-import url from "url";
-import pathToRegexp from "path-to-regexp";
 import methods from "methods";
-var decode = (val) => val && decodeURIComponent(val);
-var Router = class {
-  constructor(prefix) {
-    this.routes = {};
-    this.prefix = prefix === "/" ? "" : prefix;
-    methods.forEach((method) => this.routes[method] = []);
+import jet4 from "@randajan/jet-core";
+
+// src/class/Route.js
+import { pathToRegexp } from "path-to-regexp";
+import jet2 from "@randajan/jet-core";
+var { solid, cached, virtual } = jet2.prop;
+var Route = class {
+  constructor(router, path, resolver) {
+    const keys2 = [];
+    solid.all(this, {
+      router,
+      resolver
+    }, false);
+    cached(this, {}, "regex", (_) => pathToRegexp(path, keys2), false);
+    virtual(this, "keys", (_) => {
+      this.regex;
+      return keys2;
+    }, false);
+    solid(this, "path", path);
   }
-  error(fn) {
-    this._errFn = fn;
+  decodeParam(param) {
+    return param && decodeURIComponent(param);
   }
-  dispatch(req, res) {
-    const m = req.method.toLowerCase();
-    res.odataError = (err) => this._errFn(req, res, err);
-    const { pathname } = url.parse(req.originalUrl || req.url);
-    let match = false;
-    for (const el of this.routes[m]) {
-      const keys = [];
-      const re = pathToRegexp(el.route, keys);
-      const ex = re.exec(pathname);
-      if (!ex) {
-        continue;
-      }
-      match = true;
-      const args = ex.slice(1).map(decode);
-      req.params = {};
-      for (let j = 0; j < keys.length; j++) {
-        req.params[keys[j].name] = args[j];
-      }
-      try {
-        el.fn(req, res);
-      } catch (e) {
-        this._errFn(req, res, e);
-      }
-      break;
+  parseParams(pathname) {
+    const { regex, keys: keys2 } = this;
+    const ex = regex.exec(pathname);
+    if (!ex) {
+      return;
     }
-    if (!match) {
-      const error = new Error("Not Found");
-      error.code = 404;
-      res.odataError(error);
+    const params = {};
+    for (let i = 0; i < keys2.length; i++) {
+      solid(params, keys2[i].name, this.decodeParam(ex[i + 1]));
+    }
+    return params;
+  }
+  async resolve(req, res) {
+    const params = this.parseParams(req.odata.url.pathname);
+    if (!params) {
+      return false;
+    }
+    req.params = params;
+    solid.all(req.odata, {
+      route: this,
+      params
+    });
+    this.addCorsToResponse(res);
+    const result = await this.resolver(req, res);
+    res.end(result);
+    return true;
+  }
+  addCorsToResponse(res) {
+    const cors = this.router.ods.cors;
+    if (cors) {
+      res.setHeader("Access-Control-Allow-Origin", cors);
     }
   }
 };
-methods.forEach((m) => {
-  Router.prototype[m] = function(route, fn) {
-    this.routes[m].push({
-      route: this.prefix + route,
-      fn
+
+// src/meta/metadata.js
+import builder from "xmlbuilder";
+var buildMetadata = ({ model }) => {
+  const entityTypes = [];
+  for (const typeKey in model.entityTypes) {
+    const entityType = {
+      "@Name": typeKey,
+      Property: []
+    };
+    for (const propKey in model.entityTypes[typeKey]) {
+      const property = model.entityTypes[typeKey][propKey];
+      const finalObject = { "@Name": propKey, "@Type": property.type };
+      if (Object.prototype.hasOwnProperty.call(property, "nullable")) {
+        finalObject["@Nullable"] = property.nullable;
+      }
+      entityType.Property.push(finalObject);
+      if (property.key) {
+        entityType.Key = {
+          PropertyRef: {
+            "@Name": propKey
+          }
+        };
+      }
+    }
+    entityTypes.push(entityType);
+  }
+  const complexTypes = [];
+  for (const typeKey in model.complexTypes) {
+    const complexType = {
+      "@Name": typeKey,
+      Property: []
+    };
+    for (const propKey in model.complexTypes[typeKey]) {
+      const property = model.complexTypes[typeKey][propKey];
+      complexType.Property.push({ "@Name": propKey, "@Type": property.type });
+    }
+    complexTypes.push(complexType);
+  }
+  const container = {
+    "@Name": "Context",
+    EntitySet: []
+  };
+  for (const setKey in model.entitySets) {
+    container.EntitySet.push({
+      "@EntityType": model.entitySets[setKey].entityType,
+      "@Name": setKey
     });
+  }
+  const returnObject = {
+    "edmx:Edmx": {
+      "@xmlns:edmx": "http://docs.oasis-open.org/odata/ns/edmx",
+      "@Version": "4.0",
+      "edmx:DataServices": {
+        Schema: {
+          "@xmlns": "http://docs.oasis-open.org/odata/ns/edm",
+          "@Namespace": model.namespace,
+          EntityType: entityTypes,
+          EntityContainer: container
+        }
+      }
+    }
+  };
+  if (complexTypes.length) {
+    returnObject["edmx:Edmx"]["edmx:DataServices"].Schema.ComplexType = complexTypes;
+  }
+  return builder.create(returnObject).end({ pretty: true });
+};
+
+// src/meta/collections.js
+var getCollections = (ods) => {
+  const collections = [];
+  for (const key in ods.model.entitySets) {
+    collections.push({
+      kind: "EntitySet",
+      name: key,
+      url: key
+    });
+  }
+  return JSON.stringify({
+    "@odata.context": `${ods.url}/$metadata`,
+    value: collections
+  });
+};
+
+// src/methods/query.js
+import parser from "odata-parser";
+import querystring from "querystring";
+import jet3 from "@randajan/jet-core";
+
+// src/validations/queryTransform.js
+var substringof = (node, result) => {
+  const prop = node.args[0].type === "property" ? node.args[0] : node.args[1];
+  const lit = node.args[0].type === "literal" ? node.args[0] : node.args[1];
+  result[prop.name] = new RegExp(lit.value);
+};
+var Node = class {
+  constructor(type, left, right, func, args) {
+    this.type = type;
+    this.left = left;
+    this.right = right;
+    this.func = func;
+    this.args = args;
+  }
+  _prop(result, left, rightValue) {
+    if (left.type === "property" && left.name.indexOf("/") !== -1) {
+      const fragments = left.name.split("/");
+      const obj = result[fragments[0]] || {};
+      for (let i = 1; i < fragments.length; i++) {
+        if (i === fragments.length - 1) {
+          obj[fragments[i]] = rightValue;
+        } else {
+          obj[fragments[i]] = obj[fragments[i]] || {};
+        }
+      }
+      result[fragments[0]] = obj;
+    } else {
+      result[left.name] = rightValue;
+    }
+  }
+  transform() {
+    const result = {};
+    if (this.type === "eq" && this.right.type === "literal") {
+      if (Array.isArray(this.right.value) && this.right.value.length === 2 && this.right.value[0] === "null" && this.right.value[1] === "") {
+        this._prop(result, this.left, null);
+      } else {
+        this._prop(result, this.left, this.right.value);
+      }
+    }
+    if (this.type === "lt" && this.right.type === "literal") {
+      this._prop(result, this.left, { $lt: this.right.value });
+    }
+    if (this.type === "gt" && this.right.type === "literal") {
+      this._prop(result, this.left, { $gt: this.right.value });
+    }
+    if (this.type === "le" && this.right.type === "literal") {
+      this._prop(result, this.left, { $lte: this.right.value });
+    }
+    if (this.type === "ge" && this.right.type === "literal") {
+      this._prop(result, this.left, { $gte: this.right.value });
+    }
+    if (this.type === "ne" && this.right.type === "literal") {
+      if (Array.isArray(this.right.value) && this.right.value.length === 2 && this.right.value[0] === "null" && this.right.value[1] === "") {
+        this._prop(result, this.left, { $ne: null });
+      } else {
+        this._prop(result, this.left, { $ne: this.right.value });
+      }
+    }
+    if (this.type === "and") {
+      result.$and = result.$and || [];
+      result.$and.push(new Node(this.left.type, this.left.left, this.left.right, this.func, this.args).transform());
+      result.$and.push(new Node(this.right.type, this.right.left, this.right.right, this.func, this.args).transform());
+    }
+    if (this.type === "or") {
+      result.$or = result.$or || [];
+      result.$or.push(new Node(this.left.type, this.left.left, this.left.right, this.func, this.args).transform());
+      result.$or.push(new Node(this.right.type, this.right.left, this.right.right, this.func, this.args).transform());
+    }
+    if (this.type === "functioncall") {
+      switch (this.func) {
+        case "substringof":
+          substringof(this, result);
+      }
+    }
+    return result;
+  }
+};
+var queryTransform = (query2) => {
+  if (query2.$filter) {
+    query2.$filter = new Node(query2.$filter.type, query2.$filter.left, query2.$filter.right, query2.$filter.func, query2.$filter.args).transform();
+  } else {
+    query2.$filter = {};
+  }
+  if (query2.$top) {
+    query2.$limit = query2.$top;
+  }
+  if (query2.$orderby) {
+    query2.$sort = {};
+    query2.$orderby.forEach(function(prop) {
+      const propName = Object.keys(prop)[0];
+      query2.$sort[propName] = prop[propName] === "desc" ? -1 : 1;
+    });
+  }
+  if (query2.$inlinecount === "allpages") {
+    query2.$count = true;
+  }
+  const select = {};
+  for (const key in query2.$select || []) {
+    select[query2.$select[key]] = 1;
+  }
+  query2.$select = select;
+  return query2;
+};
+
+// src/methods/query.js
+var { solid: solid2 } = jet3.prop;
+var _allowedQueryOptions = ["$", "$expand", "$filter", "$format", "$inlinecount", "$select", "$skip", "$top", "$orderby"];
+var parseOptions = (url, params) => {
+  const query2 = url.query;
+  let r = { $filter: {} };
+  if (url.search) {
+    const queryValid = {};
+    for (const opt of _allowedQueryOptions) {
+      if (query2[opt]) {
+        queryValid[opt] = query2[opt];
+      }
+    }
+    const encodedQS = decodeURIComponent(querystring.stringify(queryValid));
+    if (encodedQS) {
+      r = queryTransform(parser.parse(encodedQS));
+    }
+    if (query2.$count) {
+      r.$inlinecount = true;
+    }
+  }
+  r.collection = params.collection;
+  if (params.id) {
+    r.$filter._id = params.id.replace(/["']/g, "");
+  }
+  return r;
+};
+var query = async (req, res) => {
+  const { ods, params, url } = req.odata;
+  const { resolver } = vault2.get(ods.uid);
+  const { collection } = params;
+  if (!ods.model.entitySets[collection]) {
+    const error = new Error("Entity set not Found");
+    error.code = 404;
+    res.odataError(error);
+    return;
+  }
+  const queryOptions = parseOptions(url, params);
+  const result = await resolver("query", req);
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
+  res.setHeader("OData-Version", "4.0");
+  let out = {};
+  let sAdditionIntoContext = "";
+  const oSelect = queryOptions.$select;
+  if (oSelect) {
+    const countProp = Object.keys(oSelect).length;
+    let ctr = 1;
+    for (const key in oSelect) {
+      sAdditionIntoContext += key.toString() + (ctr < countProp ? "," : "");
+      ctr++;
+    }
+  }
+  if (Object.prototype.hasOwnProperty.call(queryOptions.$filter, "_id")) {
+    sAdditionIntoContext = sAdditionIntoContext.length > 0 ? "(" + sAdditionIntoContext + ")/$entity" : "/$entity";
+    out["@odata.context"] = ods.url + "/$metadata#" + collection + sAdditionIntoContext;
+    if (result.length > 0) {
+      for (const key in result[0]) {
+        out[key] = result[0][key];
+      }
+    }
+    out.value = result;
+  } else {
+    sAdditionIntoContext = sAdditionIntoContext.length > 0 ? "(" + sAdditionIntoContext + ")" : "";
+    out = {
+      "@odata.context": ods.url + "/$metadata#" + collection + sAdditionIntoContext,
+      value: result
+    };
+  }
+  if (queryOptions.$inlinecount) {
+    out["@odata.count"] = result.count;
+    out.value = result.value;
+  }
+  ods.pruneResults(collection, out.value);
+  ods.bufferToBase64(collection, out.value);
+  return JSON.stringify(out);
+};
+
+// src/methods/insert.js
+var keys = (o) => {
+  const res = [];
+  const k = Object.keys(o);
+  for (const i in k) {
+    if (k[i].lastIndexOf("@", 0) === 0) {
+      res.splice(0, 0, k[i]);
+    } else {
+      res.push(k[i]);
+    }
+  }
+  return res;
+};
+var sortProperties = (o) => {
+  const res = {};
+  const props = keys(o);
+  for (let i = 0; i < props.length; i++) {
+    res[props[i]] = o[props[i]];
+  }
+  return res;
+};
+var removeOdataType = (doc) => {
+  if (doc instanceof Array) {
+    for (const i in doc) {
+      if (typeof doc[i] === "object" && doc[i] !== null) {
+        removeOdataType(doc[i]);
+      }
+    }
+  }
+  delete doc["@odata.type"];
+  for (const prop in doc) {
+    if (typeof doc[prop] === "object" && doc[prop] !== null) {
+      removeOdataType(doc[prop]);
+    }
+  }
+};
+var processBody = (data, { cfg, url }, req, res) => {
+  try {
+    removeOdataType(data);
+    cfg.base64ToBuffer(req.params.collection, data);
+    cfg.executeInsert(req.params.collection, data, req, (err, entity) => {
+      if (err) {
+        return res.odataError(err);
+      }
+      res.statusCode = 201;
+      res.setHeader("Content-Type", "application/json;odata.metadata=minimal;odata.streaming=true;IEEE754Compatible=false;charset=utf-8");
+      res.setHeader("OData-Version", "4.0");
+      res.setHeader("Location", url + "/" + req.params.collection + "/('" + encodeURI(entity._id) + "')");
+      cfg.pruneResults(req.params.collection, entity);
+      entity["@odata.id"] = url + "/" + req.params.collection + "('" + entity._id + "')";
+      entity["@odata.editLink"] = url + "/" + req.params.collection + "('" + entity._id + "')";
+      entity["@odata.context"] = url + "/$metadata#" + req.params.collection + "/$entity";
+      entity = sortProperties(entity);
+      cfg.bufferToBase64(req.params.collection, [entity]);
+      return JSON.stringify(entity);
+    });
+  } catch (e) {
+    res.odataError(e);
+  }
+};
+var insert = (ods, req, res) => {
+  if (req.body) {
+    return processBody(req.body, ods, req, res);
+  }
+  let body = "";
+  req.on("data", (data) => {
+    body += data;
+    if (body.length > 1e6) {
+      req.connection.destroy();
+    }
+  });
+  req.on("end", () => {
+    return processBody(JSON.parse(body), ods, req, res);
+  });
+};
+
+// src/methods/update.js
+var removeOdataType2 = (doc) => {
+  if (doc instanceof Array) {
+    for (const i in doc) {
+      if (typeof doc[i] === "object" && doc[i] !== null) {
+        removeOdataType2(doc[i]);
+      }
+    }
+  }
+  delete doc["@odata.type"];
+  for (const prop in doc) {
+    if (typeof doc[prop] === "object" && doc[prop] !== null) {
+      removeOdataType2(doc[prop]);
+    }
+  }
+};
+var processBody2 = (body, { cfg }, req, res) => {
+  removeOdataType2(body);
+  const query2 = {
+    _id: req.params.id.replace(/\"/g, "").replace(/'/g, "")
+  };
+  const update2 = {
+    $set: body
+  };
+  try {
+    cfg.base64ToBuffer(req.params.collection, update2.$set);
+    cfg.executeUpdate(req.params.collection, query2, update2, req, (e, entity) => {
+      if (e) {
+        return res.odataError(e);
+      }
+      res.statusCode = 204;
+    });
+  } catch (e) {
+    res.odataError(e);
+  }
+};
+var update = (ods, req, res) => {
+  if (req.body) {
+    return processBody2(req.body, ods, req, res);
+  }
+  let body = "";
+  req.on("data", (data) => {
+    body += data;
+    if (body.length > 1e6) {
+      req.connection.destroy();
+    }
+  });
+  req.on("end", () => {
+    return processBody2(JSON.parse(body), ods, req, res);
+  });
+};
+
+// src/methods/remove.js
+var remove = async (req, res) => {
+  const { ods, params, url } = req.odata;
+  const { resolver } = vault.get(ods.uid);
+  const query2 = {
+    _id: req.params.id.replace(/\"/g, "").replace(/'/g, "")
+  };
+  await resolver("remove", req);
+  res.statusCode = 204;
+};
+
+// src/class/Router.js
+var { solid: solid3, virtual: virtual2 } = jet4.prop;
+var Router = class {
+  constructor(ods, prefix) {
+    solid3.all(this, {
+      ods
+    }, false);
+    solid3.all(this, {
+      prefix,
+      routes: {}
+    });
+    this.get("/", (req, res) => {
+      const result = getCollections(ods);
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/json");
+      return result;
+    });
+    this.get("/$metadata", (req, res) => {
+      const result = buildMetadata(ods.cfg);
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "application/xml");
+      res.setHeader("DataServiceVersion", "4.0");
+      res.setHeader("OData-Version", "4.0");
+      return result;
+    });
+    this.get("/:collection/$count", (req, res) => {
+      solid3(req.odata.params, "$count", true);
+      return query(req, res);
+    });
+    this.get("/:collection\\(:id\\)", query);
+    this.get("/:collection", query);
+    this.patch("/:collection\\(:id\\)", (req, res) => {
+      return update(ods, req, res);
+    });
+    this.delete("/:collection\\(:id\\)", remove);
+    this.post("/:collection", (req, res) => {
+      return insert(ods, req, res);
+    });
+    if (ods.cors) {
+      this.options("/(.*)", (req, res) => {
+        res.statusCode = 200;
+        res.setHeader("Access-Control-Allow-Origin", ods.cors);
+      });
+    }
+  }
+  async dispatch(req, res) {
+    const method = req.method.toLowerCase();
+    for (const route of this.routes[method]) {
+      if (await route.resolve(req, res)) {
+        return true;
+      }
+    }
+    throw Error({ code: 404, msg: "Not found" });
+  }
+};
+methods.forEach((method) => {
+  Router.prototype[method] = function(path, exe) {
+    const list = this.routes[method] || (this.routes[method] = []);
+    const route = new Route(this, path, exe);
+    list.push(route);
+    return route;
   };
 });
 
+// src/validations/prune.js
+var _prune = (doc, model, type) => {
+  if (doc instanceof Array) {
+    for (const i in doc) {
+      _prune(doc[i], model, type);
+    }
+    return;
+  }
+  for (const prop in doc) {
+    if (!prop || doc[prop] === void 0 || prop.toString().substring(0, 6) === "@odata") {
+      continue;
+    }
+    const propDef = type[prop];
+    if (!propDef) {
+      delete doc[prop];
+      continue;
+    }
+    if (propDef.type.indexOf("Collection") === 0) {
+      if (propDef.type.indexOf("Collection(Edm") === 0) {
+        continue;
+      }
+      let complexTypeName = propDef.type.replace("Collection(" + model.namespace + ".", "");
+      complexTypeName = complexTypeName.substring(0, complexTypeName.length - 1);
+      const complexType = model.complexTypes[complexTypeName];
+      if (!complexType) {
+        throw new Error(`Complex type ${complexTypeName} was not found.`);
+      }
+      for (const i in doc[prop]) {
+        _prune(doc[prop][i], model, complexType);
+      }
+      continue;
+    }
+    if (propDef.type.indexOf("Edm") !== 0) {
+      const complexTypeName = propDef.type.replace(model.namespace + ".", "");
+      const complexType = model.complexTypes[complexTypeName];
+      if (!complexType) {
+        throw new Error(`Complex type ${complexTypeName} was not found.`);
+      }
+      _prune(doc[prop], model, complexType);
+    }
+  }
+};
+var prune = ({ model }, collection, docs) => {
+  const entitySet = model.entitySets[collection];
+  const entityType = model.entityTypes[entitySet.entityType.replace(model.namespace + ".", "")];
+  _prune(docs, model, entityType);
+};
+
 // src/class/ODataServer.js
+var { solid: solid4, virtual: virtual3 } = jet5.prop;
 var ODataServer = class extends EventEmitter {
-  constructor(serviceUrl) {
-    this.serviceUrl = serviceUrl;
+  constructor(config = {}) {
+    super();
+    const { url, model, cors, resolver } = config;
+    const [uid, _p] = vault2.set({
+      url,
+      model,
+      cors,
+      routers: {},
+      resolver
+    });
+    solid4.all(this, {
+      uid
+    }, false);
+    virtual3.all(this, {
+      url: (_) => _p.url,
+      model: (_) => _p.model,
+      cors: (_) => _p.cors
+    });
     this.cfg = {
-      serviceUrl,
       afterRead: function() {
       },
       beforeQuery: function(col, query2, req, cb) {
@@ -84,131 +633,43 @@ var ODataServer = class extends EventEmitter {
       executeRemove: ODataServer.prototype.executeRemove.bind(this),
       base64ToBuffer: ODataServer.prototype.base64ToBuffer.bind(this),
       bufferToBase64: ODataServer.prototype.bufferToBase64.bind(this),
-      pruneResults: ODataServer.prototype.pruneResults.bind(this),
-      addCorsToResponse: ODataServer.prototype.addCorsToResponse.bind(this)
+      pruneResults: ODataServer.prototype.pruneResults.bind(this)
     };
   }
-  handle(req, res) {
-    if (!this.cfg.serviceUrl && !req.protocol) {
-      throw new Error("Unable to determine service url from the express request or value provided in the ODataServer constructor.");
-    }
-    function escapeRegExp(str) {
-      return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+  async resolve(req, res) {
+    const _p = vault2.get(this.uid);
+    if (!_p.url && !req.protocol) {
+      throw Error("Unable to determine server url from the request or value provided in the ODataServer constructor.");
     }
     const path = (req.originalUrl || "/").replace(new RegExp(escapeRegExp(req.url) + "$"), "");
-    this.cfg.serviceUrl = this.serviceUrl ? this.serviceUrl : req.protocol + "://" + req.get("host") + path;
-    const prefix = url2.parse(this.cfg.serviceUrl).pathname;
-    if (!this.router || prefix !== this.router.prefix) {
-      this.router = new Router(prefix);
-      this._initializeRoutes();
+    if (!_p.url) {
+      _p.url = req.protocol + "://" + req.get("host") + path;
     }
-    this.router.dispatch(req, res);
+    ;
+    const prefix = parseUrl(_p.url).pathname;
+    const router = _p.routers[prefix] || (_p.routers[prefix] = new Router(this, prefix));
+    solid4(req, "odata", solid4.all({}, {
+      ods: this,
+      router,
+      url: parseUrl(req.originalUrl || req.url, true)
+    }));
+    return router.dispatch(req, res);
   }
-  _initializeRoutes() {
-    const self = this;
-    this.router.get("/$metadata", function(req, res) {
-      const result = metadata(self.cfg);
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/xml");
-      res.setHeader("DataServiceVersion", "4.0");
-      res.setHeader("OData-Version", "4.0");
-      self.cfg.addCorsToResponse(res);
-      return res.end(result);
-    });
-    this.router.get("/:collection/$count", function(req, res) {
-      req.params.$count = true;
-      query(self.cfg, req, res);
-    });
-    this.router.get("/:collection\\(:id\\)", function(req, res) {
-      query(self.cfg, req, res);
-    });
-    this.router.get("/:collection", function(req, res) {
-      query(self.cfg, req, res);
-    });
-    this.router.get("/", function(req, res) {
-      const result = collections(self.cfg);
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "application/json");
-      self.cfg.addCorsToResponse(res);
-      return res.end(result);
-    });
-    this.router.post("/:collection", function(req, res) {
-      insert(self.cfg, req, res);
-    });
-    this.router.patch("/:collection\\(:id\\)", function(req, res) {
-      update(self.cfg, req, res);
-    });
-    this.router.delete("/:collection\\(:id\\)", function(req, res) {
-      remove(self.cfg, req, res);
-    });
-    if (this.cfg.cors) {
-      this.router.options("/(.*)", function(req, res) {
-        res.statusCode = 200;
-        res.setHeader("Access-Control-Allow-Origin", self.cfg.cors);
-        res.end();
-      });
-    }
-    this.router.error(function(req, res, error) {
-      function def(e) {
-        self.emit("odata-error", e);
-        res.statusCode = error.code && error.code >= 100 && error.code < 600 ? error.code : 500;
+  getHandler() {
+    return (req, res) => {
+      this.resolve(req, res).catch((e) => {
+        const error = {
+          code: e?.code || 500,
+          message: e?.msg || e?.message || "Unknown error",
+          stack: e?.stack,
+          target: req.url,
+          details: []
+        };
+        res.statusCode = error.code;
         res.setHeader("Content-Type", "application/json");
-        self.cfg.addCorsToResponse(res);
-        res.end(JSON.stringify({
-          error: {
-            code: error.code || 500,
-            message: e.message,
-            stack: e.stack,
-            target: req.url,
-            details: []
-          },
-          innererror: {}
-        }));
-      }
-      if (self.cfg.error) {
-        self.cfg.error(req, res, error, def);
-      } else {
-        def(error);
-      }
-    });
-  }
-  error(fn) {
-    this.cfg.error = fn.bind(this);
-    return this;
-  }
-  query(fn) {
-    this.cfg.query = fn.bind(this);
-    return this;
-  }
-  cors(domains) {
-    this.cfg.cors = domains;
-    return this;
-  }
-  beforeQuery(fn) {
-    if (fn.length === 3) {
-      console.warn("Listener function should accept request parameter.");
-      const origFn = fn;
-      fn = function(col, query2, req, cb) {
-        origFn(col, query2, cb);
-      };
-    }
-    this.cfg.beforeQuery = fn.bind(this);
-    return this;
-  }
-  executeQuery(col, query2, req, cb) {
-    const self = this;
-    this.cfg.beforeQuery(col, query2, req, function(err) {
-      if (err) {
-        return cb(err);
-      }
-      self.cfg.query(col, query2, req, function(err2, res) {
-        if (err2) {
-          return cb(err2);
-        }
-        self.cfg.afterRead(col, res, req);
-        cb(null, res);
+        res.end(JSON.stringify({ error }));
       });
-    });
+    };
   }
   insert(fn) {
     this.cfg.insert = fn.bind(this);
@@ -286,19 +747,11 @@ var ODataServer = class extends EventEmitter {
     this.cfg.afterRead = fn;
     return this;
   }
-  model(model) {
-    this.cfg.model = model;
-    return this;
-  }
-  adapter(adapter) {
-    adapter(this);
-    return this;
-  }
   pruneResults(collection, res) {
-    prune(this.cfg.model, collection, res);
+    prune(this, collection, res);
   }
   base64ToBuffer(collection, doc) {
-    const model = this.cfg.model;
+    const model = this.model;
     const entitySet = model.entitySets[collection];
     const entityType = model.entityTypes[entitySet.entityType.replace(model.namespace + ".", "")];
     for (const prop in doc) {
@@ -315,7 +768,7 @@ var ODataServer = class extends EventEmitter {
     }
   }
   bufferToBase64(collection, res) {
-    const model = this.cfg.model;
+    const model = this.model;
     const entitySet = model.entitySets[collection];
     const entityType = model.entityTypes[entitySet.entityType.replace(model.namespace + ".", "")];
     for (const i in res) {
@@ -344,16 +797,14 @@ var ODataServer = class extends EventEmitter {
       }
     }
   }
-  addCorsToResponse(res) {
-    if (this.cfg.cors) {
-      res.setHeader("Access-Control-Allow-Origin", this.cfg.cors);
-    }
-  }
 };
 
 // src/index.js
 var src_default = (options) => new ODataServer(options);
 export {
-  src_default as default
+  buildMetadata,
+  src_default as default,
+  prune,
+  queryTransform
 };
 //# sourceMappingURL=index.js.map
