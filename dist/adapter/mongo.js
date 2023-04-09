@@ -15,10 +15,11 @@ var update = async (collection, { query: query2, data }) => {
   }
   return res.matchedCount;
 };
-var remove = async (collection, { query: query2 }) => {
-  const res = await collection.deleteOne(query2);
-  if (res.deletedCount !== 1) {
-    throw Error("Remove not successful");
+var remove = async (collection, { options }) => {
+  const { $select, $sort, $skip, $limit, $count, $inlinecount, $filter } = _convertStringsToObjectIds(options);
+  const res = await collection.deleteOne($filter);
+  if (res.deletedCount < 1) {
+    throw { code: 410, msg: "Gone" };
   }
   return res.deletedCount;
 };

@@ -5,13 +5,12 @@ var __export = (target, all) => {
 };
 
 // src/class/Server.js
-import { parse as parseUrl } from "url";
 import { Buffer as Buffer2 } from "safe-buffer";
-import jet5 from "@randajan/jet-core";
+import jet7 from "@randajan/jet-core";
 
 // src/tools.js
 import jet from "@randajan/jet-core";
-var vault2 = jet.vault("ODataServer");
+var vault = jet.vault("ODataServer");
 var escapeRegExp = (str) => str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
 
 // src/validations/prune.js
@@ -66,12 +65,11 @@ var prune = ({ model }, collection, docs) => {
 import { pathToRegexp } from "path-to-regexp";
 import jet2 from "@randajan/jet-core";
 var { solid, cached, virtual } = jet2.prop;
+var decodeParam = (param) => param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
 var Route = class {
-  constructor(method, path, resolver) {
+  constructor(method, path, resolve) {
     const keys2 = [];
-    solid.all(this, {
-      resolver
-    }, false);
+    solid(this, "resolve", resolve);
     cached(this, {}, "regex", (_) => pathToRegexp(path, keys2), false);
     virtual(this, "keys", (_) => {
       this.regex;
@@ -82,8 +80,8 @@ var Route = class {
       path
     });
   }
-  decodeParam(param) {
-    return param && decodeURIComponent(param);
+  test(pathname) {
+    return this.regex.test(pathname);
   }
   parseParams(pathname) {
     const { regex, keys: keys2 } = this;
@@ -93,39 +91,9 @@ var Route = class {
     }
     const params = {};
     for (let i = 0; i < keys2.length; i++) {
-      solid(params, keys2[i].name, this.decodeParam(ex[i + 1]));
+      solid(params, keys2[i].name, decodeParam(ex[i + 1]));
     }
     return params;
-  }
-  async resolve(req, res) {
-    const { odata } = req;
-    const { url, server: { cors } } = odata;
-    const params = this.parseParams(url.pathname);
-    if (!params) {
-      return false;
-    }
-    req.params = params;
-    solid.all(odata, {
-      route: this,
-      params
-    });
-    res.setHeader("OData-Version", "4.0");
-    res.setHeader("DataServiceVersion", "4.0");
-    if (cors) {
-      res.setHeader("Access-Control-Allow-Origin", cors);
-    }
-    const result = await this.resolver(req, res);
-    if (Object.jet.is(result)) {
-      res.stateCode = 200;
-      res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify(result));
-    } else if (result) {
-      res.stateCode = 200;
-      res.end(result);
-    } else {
-      res.stateCode = 204;
-    }
-    return true;
   }
 };
 
@@ -135,7 +103,7 @@ __export(collections_exports, {
   default: () => collections_default
 });
 var collections_default = (req, res) => {
-  const { model, url } = req.odata.server;
+  const { model, url } = req.context.server;
   const collections2 = [];
   for (const key in model.entitySets) {
     collections2.push({
@@ -161,162 +129,15 @@ var query_exports = {};
 __export(query_exports, {
   default: () => query_default
 });
-import parser from "odata-parser";
-import querystring from "querystring";
 import jet3 from "@randajan/jet-core";
-
-// src/validations/queryTransform.js
-var substringof = (node, result) => {
-  const prop = node.args[0].type === "property" ? node.args[0] : node.args[1];
-  const lit = node.args[0].type === "literal" ? node.args[0] : node.args[1];
-  result[prop.name] = new RegExp(lit.value);
-};
-var Node = class {
-  constructor(type, left, right, func, args) {
-    this.type = type;
-    this.left = left;
-    this.right = right;
-    this.func = func;
-    this.args = args;
-  }
-  _prop(result, left, rightValue) {
-    if (left.type === "property" && left.name.indexOf("/") !== -1) {
-      const fragments = left.name.split("/");
-      const obj = result[fragments[0]] || {};
-      for (let i = 1; i < fragments.length; i++) {
-        if (i === fragments.length - 1) {
-          obj[fragments[i]] = rightValue;
-        } else {
-          obj[fragments[i]] = obj[fragments[i]] || {};
-        }
-      }
-      result[fragments[0]] = obj;
-    } else {
-      result[left.name] = rightValue;
-    }
-  }
-  transform() {
-    const result = {};
-    if (this.type === "eq" && this.right.type === "literal") {
-      if (Array.isArray(this.right.value) && this.right.value.length === 2 && this.right.value[0] === "null" && this.right.value[1] === "") {
-        this._prop(result, this.left, null);
-      } else {
-        this._prop(result, this.left, this.right.value);
-      }
-    }
-    if (this.type === "lt" && this.right.type === "literal") {
-      this._prop(result, this.left, { $lt: this.right.value });
-    }
-    if (this.type === "gt" && this.right.type === "literal") {
-      this._prop(result, this.left, { $gt: this.right.value });
-    }
-    if (this.type === "le" && this.right.type === "literal") {
-      this._prop(result, this.left, { $lte: this.right.value });
-    }
-    if (this.type === "ge" && this.right.type === "literal") {
-      this._prop(result, this.left, { $gte: this.right.value });
-    }
-    if (this.type === "ne" && this.right.type === "literal") {
-      if (Array.isArray(this.right.value) && this.right.value.length === 2 && this.right.value[0] === "null" && this.right.value[1] === "") {
-        this._prop(result, this.left, { $ne: null });
-      } else {
-        this._prop(result, this.left, { $ne: this.right.value });
-      }
-    }
-    if (this.type === "and") {
-      result.$and = result.$and || [];
-      result.$and.push(new Node(this.left.type, this.left.left, this.left.right, this.func, this.args).transform());
-      result.$and.push(new Node(this.right.type, this.right.left, this.right.right, this.func, this.args).transform());
-    }
-    if (this.type === "or") {
-      result.$or = result.$or || [];
-      result.$or.push(new Node(this.left.type, this.left.left, this.left.right, this.func, this.args).transform());
-      result.$or.push(new Node(this.right.type, this.right.left, this.right.right, this.func, this.args).transform());
-    }
-    if (this.type === "functioncall") {
-      switch (this.func) {
-        case "substringof":
-          substringof(this, result);
-      }
-    }
-    return result;
-  }
-};
-var queryTransform = (query2) => {
-  if (query2.$filter) {
-    query2.$filter = new Node(query2.$filter.type, query2.$filter.left, query2.$filter.right, query2.$filter.func, query2.$filter.args).transform();
-  } else {
-    query2.$filter = {};
-  }
-  if (query2.$top) {
-    query2.$limit = query2.$top;
-  }
-  if (query2.$orderby) {
-    query2.$sort = {};
-    query2.$orderby.forEach(function(prop) {
-      const propName = Object.keys(prop)[0];
-      query2.$sort[propName] = prop[propName] === "desc" ? -1 : 1;
-    });
-  }
-  if (query2.$inlinecount === "allpages") {
-    query2.$count = true;
-  }
-  const select = {};
-  for (const key in query2.$select || []) {
-    select[query2.$select[key]] = 1;
-  }
-  query2.$select = select;
-  return query2;
-};
-
-// src/methods/resolvers/query.js
-var { solid: solid2 } = jet3.prop;
-var _allowedQueryOptions = ["$", "$expand", "$filter", "$format", "$inlinecount", "$select", "$skip", "$top", "$orderby"];
-var parseOptions = (url, params) => {
-  const query2 = url.query;
-  let r = { $filter: {} };
-  if (url.search) {
-    const queryValid = {};
-    for (const opt of _allowedQueryOptions) {
-      if (query2[opt]) {
-        queryValid[opt] = query2[opt];
-      }
-    }
-    const encodedQS = decodeURIComponent(querystring.stringify(queryValid));
-    if (encodedQS) {
-      r = queryTransform(parser.parse(encodedQS));
-    }
-    if (query2.$count) {
-      r.$inlinecount = true;
-    }
-  }
-  r.collection = params.collection;
-  if (params.count) {
-    r.$count = true;
-  }
-  if (params.id) {
-    r.$filter._id = params.id.replace(/["']/g, "");
-  }
-  return r;
-};
-var query_default = async (req, res) => {
-  const { odata } = req;
-  const { server, params, url } = odata;
-  const { resolver } = vault2.get(server.uid);
-  const { collection } = params;
-  if (!server.model.entitySets[collection]) {
-    const error = new Error("Entity set not Found");
-    error.code = 404;
-    res.odataError(error);
-    return;
-  }
-  const queryOptions = parseOptions(url, params);
-  solid2(req.odata, "options", queryOptions);
-  const result = await resolver("query", req.odata);
+var query_default = async (req, res, resolver) => {
+  const { context } = req;
+  const { server, params: { collection }, options, keys: keys2 } = context;
+  const result = await resolver("query", context);
   res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
   let out = {};
   let sAdditionIntoContext = "";
-  const oSelect = queryOptions.$select;
+  const oSelect = options.$select;
   if (oSelect) {
     const countProp = Object.keys(oSelect).length;
     let ctr = 1;
@@ -325,7 +146,7 @@ var query_default = async (req, res) => {
       ctr++;
     }
   }
-  if (Object.prototype.hasOwnProperty.call(queryOptions.$filter, "_id")) {
+  if (!options.$filter._id) {
     sAdditionIntoContext = sAdditionIntoContext.length > 0 ? "(" + sAdditionIntoContext + ")/$entity" : "/$entity";
     out["@odata.context"] = server.url + "/$metadata#" + collection + sAdditionIntoContext;
     if (result.length > 0) {
@@ -333,7 +154,6 @@ var query_default = async (req, res) => {
         out[key] = result[0][key];
       }
     }
-    out.value = result;
   } else {
     sAdditionIntoContext = sAdditionIntoContext.length > 0 ? "(" + sAdditionIntoContext + ")" : "";
     out = {
@@ -341,7 +161,7 @@ var query_default = async (req, res) => {
       value: result
     };
   }
-  if (queryOptions.$inlinecount) {
+  if (options.$inlinecount) {
     out["@odata.count"] = result.count;
     out.value = result.value;
   }
@@ -509,7 +329,8 @@ var buildMetadata = (model) => {
   return builder.create(returnObject).end({ pretty: true });
 };
 var metadata_default = (req, res) => {
-  const result = buildMetadata(req.odata.server.model);
+  console.log(req.context.server.model);
+  const result = buildMetadata(req.context.server.model);
   res.setHeader("Content-Type", "application/xml");
   return result;
 };
@@ -519,14 +340,8 @@ var remove_exports = {};
 __export(remove_exports, {
   default: () => remove_default
 });
-var remove_default = async (req, res) => {
-  const { server, params, url } = req.odata;
-  const { resolver } = vault.get(server.uid);
-  const query2 = {
-    _id: req.params.id.replace(/\"/g, "").replace(/'/g, "")
-  };
-  await resolver("remove", req);
-  res.statusCode = 204;
+var remove_default = async (req, res, resolver) => {
+  await resolver("remove", req.context);
 };
 
 // src/methods/resolvers/update.js
@@ -600,49 +415,231 @@ filenames.forEach((pathname, index) => {
   methods[name] = __default[index].default;
 });
 
+// src/class/Context.js
+import { parse as parseUrl } from "url";
+import jet6 from "@randajan/jet-core";
+
+// src/validations/options.js
+import parser from "odata-parser";
+import querystring from "querystring";
+import jet5 from "@randajan/jet-core";
+var { solid: solid2 } = jet5.prop;
+var _allowedQueryOptions = ["$", "$expand", "$filter", "$format", "$inlinecount", "$select", "$skip", "$top", "$orderby"];
+var filterBug = (val) => Array.isArray(val) && val.length === 2 && val[0] === "null" && val[1] === "" ? null : val;
+var parseOp = (op, left, right, func, args) => {
+  const r = op || [];
+  r.push(parseNode(left, func, args));
+  r.push(parseNode(right, func, args));
+  return r;
+};
+var parseSort = (orderBy) => {
+  const r = {};
+  if (!orderBy) {
+    return r;
+  }
+  for (const prop of orderBy) {
+    const propName = Object.keys(prop)[0];
+    r[propName] = prop[propName] === "desc" ? -1 : 1;
+  }
+  return r;
+};
+var parseSelect = (select) => {
+  const r = {};
+  if (!select) {
+    return r;
+  }
+  for (const prop of select) {
+    r[prop] = 1;
+  }
+  return r;
+};
+var parseFilter = (filter) => {
+  if (!filter) {
+    return {};
+  }
+  const { type, left, right, func, args } = filter;
+  return parseNode({ type, left, right }, func, args);
+};
+var substringof = (args, result) => {
+  const prop = args[0].type === "property" ? args[0] : args[1];
+  const lit = args[0].type === "literal" ? args[0] : args[1];
+  result[prop.name] = new RegExp(lit.value);
+};
+var _pushProp = (result, left, rightValue) => {
+  if (left.type !== "property" || left.name.indexOf("/") === -1) {
+    return result[left.name] = rightValue;
+  }
+  const fragments = left.name.split("/");
+  const obj = result[fragments[0]] || {};
+  for (let i = 1; i < fragments.length; i++) {
+    if (i === fragments.length - 1) {
+      obj[fragments[i]] = rightValue;
+    } else {
+      obj[fragments[i]] = obj[fragments[i]] || {};
+    }
+  }
+  return result[fragments[0]] = obj;
+};
+var parseNode = ({ type, left, right }, func, args) => {
+  const result = {};
+  const pushProp = (rightValue) => _pushProp(result, left, rightValue);
+  if (right.type === "literal") {
+    if (type === "eq") {
+      pushProp(filterBug(right.value));
+    }
+    if (type === "lt") {
+      pushProp({ $lt: right.value });
+    }
+    if (type === "gt") {
+      pushProp({ $gt: right.value });
+    }
+    if (type === "le") {
+      pushProp({ $lte: right.value });
+    }
+    if (type === "ge") {
+      pushProp({ $gte: right.value });
+    }
+    if (type === "ne") {
+      pushProp({ $ne: filterBug(right.value) });
+    }
+  }
+  if (type === "and") {
+    result.$and = parseOp(result.$and, left, right, func, args);
+  }
+  if (type === "or") {
+    result.$or = parseOp(result.$or, left, right, func, args);
+  }
+  if (type === "functioncall") {
+    switch (func) {
+      case "substringof":
+        substringof(args, result);
+    }
+  }
+  return result;
+};
+var queryTransform = (query2) => {
+  if (query2.$top) {
+    query2.$limit = query2.$top;
+  }
+  if (query2.$inlinecount === "allpages") {
+    query2.$count = true;
+  }
+  query2.$sort = parseSort(query2.$orderby);
+  query2.$filter = parseFilter(query2.$filter);
+  query2.$select = parseSelect(query2.$select);
+  return query2;
+};
+var parseOptions = (url, params) => {
+  const query2 = url.query;
+  let r = { $filter: {} };
+  if (url.search) {
+    const queryValid = {};
+    for (const opt of _allowedQueryOptions) {
+      if (query2[opt]) {
+        queryValid[opt] = query2[opt];
+      }
+    }
+    const encodedQS = decodeURIComponent(querystring.stringify(queryValid));
+    if (encodedQS) {
+      r = queryTransform(parser.parse(encodedQS));
+    }
+    if (query2.$count) {
+      r.$inlinecount = true;
+    }
+  }
+  if (params.count) {
+    r.$count = true;
+  }
+  if (params.id) {
+    r.$filter._id = params.id;
+  }
+  return r;
+};
+
+// src/class/Context.js
+var { solid: solid3, cached: cached2 } = jet6.prop;
+var Context = class {
+  constructor(server, req) {
+    solid3.all(this, {
+      server
+    });
+    cached2.all(this, {}, {
+      method: (_) => req.method.toLowerCase(),
+      url: (_) => parseUrl(req.originalUrl || req.url, true),
+      route: (_) => server.findRoute(this.method, this.url.pathname),
+      params: (_) => this.route.parseParams(this.url.pathname),
+      options: (_) => parseOptions(this.url, this.params),
+      entity: (_) => server.findEntity(this.params.collection),
+      keys: (_) => Object.entries(this.entity.entityType).filter(([k, v]) => v?.key).map(([k]) => k)
+    });
+    solid3(req, "context", this);
+  }
+};
+
 // src/class/Server.js
 var { query, insert, update, remove, collections, metadata, count } = methods_default;
-var { solid: solid3, virtual: virtual2 } = jet5.prop;
+var { solid: solid4, virtual: virtual2 } = jet7.prop;
 var Server = class {
   constructor(config = {}) {
     const { url, model, cors, resolver } = config;
-    const [uid, _p] = vault2.set({
+    const [uid, _p] = vault.set({
       url,
       model,
       cors,
       routes: {},
       resolver
     });
-    solid3.all(this, {
+    solid4.all(this, {
       uid
     }, false);
     virtual2.all(this, {
       url: (_) => _p.url,
-      model: (_) => _p.model,
-      cors: (_) => _p.cors
+      model: (_) => _p.model
     });
-    this.route("get", "/", collections);
-    this.route("get", "/$metadata", metadata);
-    this.route("get", "/:collection/$count", count);
-    this.route("get", "/:collection\\(:id\\)", query);
-    this.route("get", "/:collection", query);
-    this.route("patch", "/:collection\\(:id\\)", update);
-    this.route("delete", "/:collection\\(:id\\)", remove);
-    this.route("post", "/:collection", insert);
+    this.addRoute("get", "/", collections);
+    this.addRoute("get", "/$metadata", metadata);
+    this.addRoute("get", "/:collection/$count", count);
+    this.addRoute("get", "/:collection\\(:id\\)", query);
+    this.addRoute("get", "/:collection", query);
+    this.addRoute("patch", "/:collection\\(:id\\)", update);
+    this.addRoute("delete", "/:collection\\(:id\\)", remove);
+    this.addRoute("post", "/:collection", insert);
     if (cors) {
-      this.route("options", "/(.*)", () => {
+      this.addRoute("options", "/(.*)", () => {
       });
     }
   }
-  route(method, path, resolver) {
-    const { routes } = vault2.get(this.uid);
+  addRoute(method, path, resolver) {
+    const { routes } = vault.get(this.uid);
     const list = routes[method] || (routes[method] = []);
     const route = new Route(method, path, resolver);
     list.push(route);
     return route;
   }
+  findRoute(method, path) {
+    const _p = vault.get(this.uid);
+    const routes = _p.routes[method] || [];
+    for (const route of routes) {
+      if (route.test(path)) {
+        return route;
+      }
+    }
+    throw { code: 404, msg: "Not found" };
+  }
+  findEntity(name) {
+    const { namespace, entitySets, entityTypes } = this.model;
+    const es = entitySets[name];
+    const est = es ? es.entityType.split(".") : [];
+    if (namespace !== est[0]) {
+      throw { code: 404, msg: "Entity set not found" };
+    }
+    return {
+      ...es,
+      entityType: entityTypes[est[1]]
+    };
+  }
   async resolve(req, res) {
-    const _p = vault2.get(this.uid);
+    const _p = vault.get(this.uid);
     if (!_p.url && !req.protocol) {
       throw Error("Unable to determine server url from the request or value provided in the ODataServer constructor.");
     }
@@ -651,18 +648,23 @@ var Server = class {
       _p.url = req.protocol + "://" + req.get("host") + path;
     }
     ;
-    solid3(req, "odata", solid3.all({}, {
-      server: this,
-      url: parseUrl(req.originalUrl || req.url, true)
-    }));
-    const method = req.method.toLowerCase();
-    const routes = _p.routes[method] || [];
-    for (const route of routes) {
-      if (await route.resolve(req, res)) {
-        return true;
-      }
+    const context = new Context(this, req);
+    res.setHeader("OData-Version", "4.0");
+    res.setHeader("DataServiceVersion", "4.0");
+    if (_p.cors) {
+      res.setHeader("Access-Control-Allow-Origin", _p.cors);
     }
-    throw { code: 404, msg: "Not found" };
+    const result = await context.route.resolve(req, res, _p.resolver);
+    if (Object.jet.is(result)) {
+      res.stateCode = 200;
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify(result));
+    } else if (result) {
+      res.stateCode = 200;
+      res.end(result);
+    } else {
+      res.stateCode = 204;
+    }
   }
   getResolver() {
     return (req, res) => {

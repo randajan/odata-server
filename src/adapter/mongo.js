@@ -18,11 +18,12 @@ const update = async (collection, { query, data }) => {
     return res.matchedCount;
 }
 
-const remove = async (collection, { query }) => {
+const remove = async (collection, { options }) => {
+    const { $select, $sort, $skip, $limit, $count, $inlinecount, $filter } = _convertStringsToObjectIds(options);
 
-    const res = await collection.deleteOne(query);
+    const res = await collection.deleteOne($filter);
 
-    if (res.deletedCount !== 1) { throw Error('Remove not successful'); }
+    if (res.deletedCount < 1) { throw {code:410, msg:"Gone"}; }
 
     return res.deletedCount;
 

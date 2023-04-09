@@ -1,4 +1,3 @@
-import { parse as parseUrl } from "url";
 import { Buffer } from "safe-buffer";
 import jet from "@randajan/jet-core";
 
@@ -8,6 +7,7 @@ import { prune } from '../validations/prune.js';
 import { Route } from "./Route";
 
 import methods from "../methods";
+import { Context } from "./Context";
 
 const { query, insert, update, remove, collections, metadata, count } = methods;
 
@@ -33,31 +33,52 @@ export class Server {
 
     virtual.all(this, {
       url:_=>_p.url,
-      model:_=>_p.model,
-      cors:_=>_p.cors
+      model:_=>_p.model
     });
 
-    this.route("get", '/', collections);
-    this.route("get", '/\$metadata', metadata);
+    this.addRoute("get", '/', collections);
+    this.addRoute("get", '/\$metadata', metadata);
 
-    this.route("get", '/:collection/\$count', count);
-    this.route("get", '/:collection\\(:id\\)', query);
-    this.route("get", '/:collection', query);
+    this.addRoute("get", '/:collection/\$count', count);
+    this.addRoute("get", '/:collection\\(:id\\)', query);
+    this.addRoute("get", '/:collection', query);
 
-    this.route("patch", '/:collection\\(:id\\)', update);
-    this.route("delete", '/:collection\\(:id\\)', remove);
-    this.route("post", '/:collection', insert);
+    this.addRoute("patch", '/:collection\\(:id\\)', update);
+    this.addRoute("delete", '/:collection\\(:id\\)', remove);
+    this.addRoute("post", '/:collection', insert);
 
-    if (cors) { this.route("options", '/(.*)', ()=>{}); }
+    if (cors) { this.addRoute("options", '/(.*)', ()=>{}); }
 
   }
 
-  route(method, path, resolver) {
+  addRoute(method, path, resolver) {
     const { routes } = vault.get(this.uid);
     const list = routes[method] || (routes[method] = []);
     const route = new Route(method, path, resolver);
     list.push(route);
     return route;
+  }
+
+  findRoute(method, path) {
+    const _p = vault.get(this.uid);
+    const routes = _p.routes[method] || [];
+
+    for (const route of routes) {
+      if (route.test(path)) { return route; }
+    }
+
+    throw { code: 404, msg: "Not found" };
+  }
+
+  findEntity(name) {
+    const { namespace, entitySets, entityTypes } = this.model;
+    const es = entitySets[name];
+    const est = es ? es.entityType.split(".") : [];
+    if (namespace !== est[0]) { throw { code:404, msg:"Entity set not found" }; }
+    return {
+        ...es,
+        entityType:entityTypes[est[1]]
+    }
   }
 
   async resolve(req, res) {
@@ -70,19 +91,24 @@ export class Server {
     const path = (req.originalUrl || '/').replace(new RegExp(escapeRegExp(req.url) + '$'), '')
     if (!_p.url) { _p.url = (req.protocol + '://' + req.get('host') + path); };
 
-    solid(req, "odata", solid.all({}, { //create custom context space at request
-      server:this,
-      url:parseUrl(req.originalUrl || req.url, true)
-    })); 
-    
-    const method = req.method.toLowerCase();
-    const routes = _p.routes[method] || [];
+    const context = new Context(this, req);
 
-    for (const route of routes) {
-      if (await route.resolve(req, res)) { return true; }
+    res.setHeader('OData-Version', '4.0');
+    res.setHeader('DataServiceVersion', '4.0');
+    if (_p.cors) { res.setHeader('Access-Control-Allow-Origin', _p.cors); }
+
+    const result = await context.route.resolve(req, res, _p.resolver);
+
+    if (Object.jet.is(result)) {
+      res.stateCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(result));
+    } else if (result) {
+      res.stateCode = 200;
+      res.end(result);
+    } else {
+      res.stateCode = 204;
     }
-
-    throw { code: 404, msg: "Not found" };
     
   }
 

@@ -1,5 +1,5 @@
 export default (req, res) => {
-    const { model, url } = req.odata.server;
+    const { model, url } = req.context.server
 
     const collections = [];
   

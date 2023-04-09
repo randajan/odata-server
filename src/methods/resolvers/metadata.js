@@ -1,7 +1,7 @@
 
 import builder from 'xmlbuilder';
 
-export const buildMetadata = (model)=>{
+export const buildMetadata = (model) => {
   const entityTypes = []
   for (const typeKey in model.entityTypes) {
     const entityType = {
@@ -80,9 +80,10 @@ export const buildMetadata = (model)=>{
 }
 
 export default (req, res) => {
-    const result = buildMetadata(req.odata.server.model);
-  
-    res.setHeader('Content-Type', 'application/xml');
-  
-    return result;
-  }
+  console.log(req.context.server.model);
+  const result = buildMetadata(req.context.server.model);
+
+  res.setHeader('Content-Type', 'application/xml');
+
+  return result;
+}
