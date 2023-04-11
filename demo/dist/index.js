@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: false, name: "simple-odata-server", description: "OData server with adapter for mongodb and nedb", version: "1.2.3", author: "Jan Randa", env: "dev", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: false, name: "simple-odata-server", description: "OData server with adapter for mongodb and nedb", version: "1.2.4", author: "Jan Randa", env: "dev", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -59,18 +59,24 @@ process.on("uncaughtException", (e) => {
 
 // dist/index.js
 import { Buffer as Buffer2 } from "safe-buffer";
-import jet7 from "@randajan/jet-core";
+import jet13 from "@randajan/jet-core";
 import jet from "@randajan/jet-core";
 import { pathToRegexp } from "path-to-regexp";
+import jet4 from "@randajan/jet-core";
 import jet2 from "@randajan/jet-core";
 import jet3 from "@randajan/jet-core";
-import jet4 from "@randajan/jet-core";
 import builder from "xmlbuilder";
 import { parse as parseUrl } from "url";
-import jet6 from "@randajan/jet-core";
+import jet7 from "@randajan/jet-core";
 import parser from "odata-parser";
 import querystring from "querystring";
 import jet5 from "@randajan/jet-core";
+import jet6 from "@randajan/jet-core";
+import jet12 from "@randajan/jet-core";
+import jet8 from "@randajan/jet-core";
+import jet9 from "@randajan/jet-core";
+import jet10 from "@randajan/jet-core";
+import jet11 from "@randajan/jet-core";
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -78,102 +84,35 @@ var __export = (target, all) => {
 };
 var vault = jet.vault("ODataServer");
 var escapeRegExp = (str) => str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
-var _prune = (doc, model2, type) => {
-  if (doc instanceof Array) {
-    for (const i in doc) {
-      _prune(doc[i], model2, type);
-    }
-    return;
-  }
-  for (const prop in doc) {
-    if (!prop || doc[prop] === void 0 || prop.toString().substring(0, 6) === "@odata") {
-      continue;
-    }
-    const propDef = type[prop];
-    if (!propDef) {
-      delete doc[prop];
-      continue;
-    }
-    if (propDef.type.indexOf("Collection") === 0) {
-      if (propDef.type.indexOf("Collection(Edm") === 0) {
-        continue;
-      }
-      let complexTypeName = propDef.type.replace("Collection(" + model2.namespace + ".", "");
-      complexTypeName = complexTypeName.substring(0, complexTypeName.length - 1);
-      const complexType = model2.complexTypes[complexTypeName];
-      if (!complexType) {
-        throw new Error(`Complex type ${complexTypeName} was not found.`);
-      }
-      for (const i in doc[prop]) {
-        _prune(doc[prop][i], model2, complexType);
-      }
-      continue;
-    }
-    if (propDef.type.indexOf("Edm") !== 0) {
-      const complexTypeName = propDef.type.replace(model2.namespace + ".", "");
-      const complexType = model2.complexTypes[complexTypeName];
-      if (!complexType) {
-        throw new Error(`Complex type ${complexTypeName} was not found.`);
-      }
-      _prune(doc[prop], model2, complexType);
-    }
-  }
+var withBrackets = (val, quote = "") => {
+  const str = String.jet.to(val, quote + "," + quote);
+  return str ? "(" + quote + str + quote + ")" : "";
 };
-var prune = ({ model: model2 }, collection, docs) => {
-  const entitySet = model2.entitySets[collection];
-  const entityType = model2.entityTypes[entitySet.entityType.replace(model2.namespace + ".", "")];
-  _prune(docs, model2, entityType);
-};
-var { solid, cached, virtual } = jet2.prop;
-var decodeParam = (param) => param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
-var Route = class {
-  constructor(method, path, resolve) {
-    const keys2 = [];
-    solid(this, "resolve", resolve);
-    cached(this, {}, "regex", (_) => pathToRegexp(path, keys2), false);
-    virtual(this, "keys", (_) => {
-      this.regex;
-      return keys2;
-    }, false);
-    solid.all(this, {
-      method,
-      path
-    });
-  }
-  test(pathname) {
-    return this.regex.test(pathname);
-  }
-  parseParams(pathname) {
-    const { regex, keys: keys2 } = this;
-    const ex = regex.exec(pathname);
-    if (!ex) {
-      return;
-    }
-    const params = {};
-    for (let i = 0; i < keys2.length; i++) {
-      solid(params, keys2[i].name, decodeParam(ex[i + 1]));
-    }
-    return params;
-  }
-};
+var getScope = (collection, ids, quote = "") => collection + withBrackets(ids, quote);
+var getScopeMeta = (collection, ids, quote = "") => "$metadata#" + getScope(collection, ids, quote);
+var isWrapped = (str, prefix = "", suffix = "") => typeof str === "string" ? str.startsWith(prefix) && str.endsWith(suffix) : false;
+var unwrap = (str, prefix = "", suffix = "") => isWrapped(str = String.jet.to(str), prefix, suffix) ? str.slice(prefix.length, str.length - suffix.length) : "";
 var collections_exports = {};
 __export(collections_exports, {
   default: () => collections_default
 });
-var collections_default = (req, res) => {
+var collections_default = async (req, res) => {
   const { model: model2, url } = req.context.server;
-  const collections2 = [];
+  const collections = [];
   for (const key in model2.entitySets) {
-    collections2.push({
+    collections.push({
       kind: "EntitySet",
       name: key,
       url: key
     });
   }
-  return {
+  const out = {
     "@odata.context": `${url}/$metadata`,
-    value: collections2
+    value: collections
   };
+  res.setHeader("Content-Type", "application/json");
+  res.stateCode = 200;
+  res.end(JSON.stringify(out));
 };
 var count_exports = {};
 __export(count_exports, {
@@ -183,125 +122,55 @@ var query_exports = {};
 __export(query_exports, {
   default: () => query_default
 });
-var query_default = async (req, res, resolver) => {
+var query_default = async (req, res, raw) => {
   const { context } = req;
-  const { server, params: { collection }, options, keys: keys2 } = context;
-  const result = await resolver("query", context);
-  res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
+  const { options: { $select, $filter, $inlinecount }, entity: { primaryKey, props } } = context;
   let out = {};
-  let sAdditionIntoContext = "";
-  const oSelect = options.$select;
-  if (oSelect) {
-    const countProp = Object.keys(oSelect).length;
-    let ctr = 1;
-    for (const key in oSelect) {
-      sAdditionIntoContext += key.toString() + (ctr < countProp ? "," : "");
-      ctr++;
-    }
-  }
-  if (!options.$filter._id) {
-    sAdditionIntoContext = sAdditionIntoContext.length > 0 ? "(" + sAdditionIntoContext + ")/$entity" : "/$entity";
-    out["@odata.context"] = server.url + "/$metadata#" + collection + sAdditionIntoContext;
-    if (result.length > 0) {
-      for (const key in result[0]) {
-        out[key] = result[0][key];
-      }
+  if ($filter.hasOwnProperty(primaryKey)) {
+    out["@odata.context"] = context.getScopeMetaEntity($select ? Object.keys($select) : "");
+    if (raw.length) {
+      Object.assign(out, props.toResponse(raw[0]));
     }
   } else {
-    sAdditionIntoContext = sAdditionIntoContext.length > 0 ? "(" + sAdditionIntoContext + ")" : "";
-    out = {
-      "@odata.context": server.url + "/$metadata#" + collection + sAdditionIntoContext,
-      value: result
-    };
+    out["@odata.context"] = context.getScopeMeta($select ? Object.keys($select) : "");
+    out.value = props.toResponse(raw, false);
   }
-  if (options.$inlinecount) {
-    out["@odata.count"] = result.count;
-    out.value = result.value;
+  if ($inlinecount) {
+    out["@odata.count"] = raw.count;
+    out.value = raw.value;
   }
-  server.pruneResults(collection, out.value);
-  server.bufferToBase64(collection, out.value);
-  return JSON.stringify(out);
+  res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
+  res.stateCode = 200;
+  res.end(JSON.stringify(out));
 };
-var count_default = (req, res) => {
-  jet4.prop.solid(req.odata.params, "count", true);
+var count_default = async (req, res) => {
+  jet3.prop.solid(req.context.params, "count", true);
   return query_default(req, res);
 };
 var insert_exports = {};
 __export(insert_exports, {
   default: () => insert_default
 });
-var keys = (o) => {
-  const res = [];
-  const k = Object.keys(o);
-  for (const i in k) {
-    if (k[i].lastIndexOf("@", 0) === 0) {
-      res.splice(0, 0, k[i]);
-    } else {
-      res.push(k[i]);
-    }
+var sortProperties = (obj) => {
+  const sortedKeys = Object.keys(obj).sort((a, b) => a.startsWith("@") ? -1 : b.startsWith("@") ? 1 : 0);
+  const sortedObj = {};
+  for (const key of sortedKeys) {
+    sortedObj[key] = obj[key];
   }
-  return res;
+  return sortedObj;
 };
-var sortProperties = (o) => {
-  const res = {};
-  const props = keys(o);
-  for (let i = 0; i < props.length; i++) {
-    res[props[i]] = o[props[i]];
-  }
-  return res;
-};
-var removeOdataType = (doc) => {
-  if (doc instanceof Array) {
-    for (const i in doc) {
-      if (typeof doc[i] === "object" && doc[i] !== null) {
-        removeOdataType(doc[i]);
-      }
-    }
-  }
-  delete doc["@odata.type"];
-  for (const prop in doc) {
-    if (typeof doc[prop] === "object" && doc[prop] !== null) {
-      removeOdataType(doc[prop]);
-    }
-  }
-};
-var processBody = (data, { cfg, url }, req, res) => {
-  try {
-    removeOdataType(data);
-    cfg.base64ToBuffer(req.params.collection, data);
-    cfg.executeInsert(req.params.collection, data, req, (err, entity) => {
-      if (err) {
-        return res.odataError(err);
-      }
-      res.statusCode = 201;
-      res.setHeader("Content-Type", "application/json;odata.metadata=minimal;odata.streaming=true;IEEE754Compatible=false;charset=utf-8");
-      res.setHeader("Location", url + "/" + req.params.collection + "/('" + encodeURI(entity._id) + "')");
-      cfg.pruneResults(req.params.collection, entity);
-      entity["@odata.id"] = url + "/" + req.params.collection + "('" + entity._id + "')";
-      entity["@odata.editLink"] = url + "/" + req.params.collection + "('" + entity._id + "')";
-      entity["@odata.context"] = url + "/$metadata#" + req.params.collection + "/$entity";
-      entity = sortProperties(entity);
-      cfg.bufferToBase64(req.params.collection, [entity]);
-      return JSON.stringify(entity);
-    });
-  } catch (e) {
-    res.odataError(e);
-  }
-};
-var insert_default = (server, req, res) => {
-  if (req.body) {
-    return processBody(req.body, server, req, res);
-  }
-  let body = "";
-  req.on("data", (data) => {
-    body += data;
-    if (body.length > 1e6) {
-      req.connection.destroy();
-    }
-  });
-  req.on("end", () => {
-    return processBody(JSON.parse(body), server, req, res);
-  });
+var insert_default = async (req, res, raw) => {
+  const { context } = req;
+  const { props, primaryKey } = context.entity;
+  let out = props.toResponse(raw);
+  const id = out[primaryKey];
+  out["@odata.id"] = out["@odata.editLink"] = context.getScope(id, "'");
+  out["@odata.context"] = context.getScopeMetaEntity();
+  out = sortProperties(out);
+  res.setHeader("Content-Type", "application/json;odata.metadata=minimal;odata.streaming=true;IEEE754Compatible=false;charset=utf-8");
+  res.setHeader("Location", context.getScope(encodeURI(id), "'"));
+  res.statusCode = 201;
+  res.end(JSON.stringify(out));
 };
 var metadata_exports = {};
 __export(metadata_exports, {
@@ -373,72 +242,27 @@ var buildMetadata = (model2) => {
   }
   return builder.create(returnObject).end({ pretty: true });
 };
-var metadata_default = (req, res) => {
-  console.log(req.context.server.model);
-  const result = buildMetadata(req.context.server.model);
+var metadata_default = async (req, res) => {
+  const out = buildMetadata(req.context.server.model);
   res.setHeader("Content-Type", "application/xml");
-  return result;
+  res.stateCode = 200;
+  res.end(out);
 };
 var remove_exports = {};
 __export(remove_exports, {
   default: () => remove_default
 });
-var remove_default = async (req, res, resolver) => {
-  await resolver("remove", req.context);
+var remove_default = async (req, res, raw) => {
+  res.stateCode = 204;
+  res.end();
 };
 var update_exports = {};
 __export(update_exports, {
   default: () => update_default
 });
-var removeOdataType2 = (doc) => {
-  if (doc instanceof Array) {
-    for (const i in doc) {
-      if (typeof doc[i] === "object" && doc[i] !== null) {
-        removeOdataType2(doc[i]);
-      }
-    }
-  }
-  delete doc["@odata.type"];
-  for (const prop in doc) {
-    if (typeof doc[prop] === "object" && doc[prop] !== null) {
-      removeOdataType2(doc[prop]);
-    }
-  }
-};
-var processBody2 = (body, { cfg }, req, res) => {
-  removeOdataType2(body);
-  const query22 = {
-    _id: req.params.id.replace(/\"/g, "").replace(/'/g, "")
-  };
-  const update22 = {
-    $set: body
-  };
-  try {
-    cfg.base64ToBuffer(req.params.collection, update22.$set);
-    cfg.executeUpdate(req.params.collection, query22, update22, req, (e, entity) => {
-      if (e) {
-        return res.odataError(e);
-      }
-      res.statusCode = 204;
-    });
-  } catch (e) {
-    res.odataError(e);
-  }
-};
-var update_default = (server, req, res) => {
-  if (req.body) {
-    return processBody2(req.body, server, req, res);
-  }
-  let body = "";
-  req.on("data", (data) => {
-    body += data;
-    if (body.length > 1e6) {
-      req.connection.destroy();
-    }
-  });
-  req.on("end", () => {
-    return processBody2(JSON.parse(body), server, req, res);
-  });
+var update_default = async (req, res, raw) => {
+  res.stateCode = 204;
+  res.end();
 };
 var modules = [collections_exports, count_exports, insert_exports, metadata_exports, query_exports, remove_exports, update_exports];
 var __default = modules;
@@ -446,11 +270,47 @@ var filenames = ["./resolvers/collections.js", "./resolvers/count.js", "./resolv
 var _prefix = "./resolvers/";
 var _suffix = ".js";
 var methods = {};
-var methods_default = methods;
+var actions_default = methods;
 filenames.forEach((pathname, index) => {
   const name = pathname.substring(_prefix.length).slice(0, -_suffix.length);
   methods[name] = __default[index].default;
 });
+var { solid, cached, virtual } = jet4.prop;
+var decodeParam = (param) => param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
+var Route = class {
+  constructor(method, path, action) {
+    const keys = [];
+    cached(this, {}, "regex", (_) => pathToRegexp(path, keys), false);
+    virtual(this, "keys", (_) => {
+      this.regex;
+      return keys;
+    }, false);
+    solid.all(this, {
+      method,
+      path,
+      action
+    });
+    solid(this, "resolver", actions_default[action]);
+    if (!this.resolver) {
+      throw Error(`Route action '${action}' is not implemented. Available actions: '${Object.keys(actions_default).join(", ")}' `);
+    }
+  }
+  test(pathname) {
+    return this.regex.test(pathname);
+  }
+  parseParams(pathname) {
+    const { regex, keys } = this;
+    const ex = regex.exec(pathname);
+    if (!ex) {
+      return;
+    }
+    const params = {};
+    for (let i = 0; i < keys.length; i++) {
+      solid(params, keys[i].name, decodeParam(ex[i + 1]));
+    }
+    return params;
+  }
+};
 var { solid: solid2 } = jet5.prop;
 var _allowedQueryOptions = ["$", "$expand", "$filter", "$format", "$inlinecount", "$select", "$skip", "$top", "$orderby"];
 var filterBug = (val) => Array.isArray(val) && val.length === 2 && val[0] === "null" && val[1] === "" ? null : val;
@@ -545,33 +405,33 @@ var parseNode = ({ type, left, right }, func, args) => {
   }
   return result;
 };
-var queryTransform = (query22) => {
-  if (query22.$top) {
-    query22.$limit = query22.$top;
+var queryTransform = (query) => {
+  if (query.$top) {
+    query.$limit = query.$top;
   }
-  if (query22.$inlinecount === "allpages") {
-    query22.$count = true;
+  if (query.$inlinecount === "allpages") {
+    query.$count = true;
   }
-  query22.$sort = parseSort(query22.$orderby);
-  query22.$filter = parseFilter(query22.$filter);
-  query22.$select = parseSelect(query22.$select);
-  return query22;
+  query.$sort = parseSort(query.$orderby);
+  query.$filter = parseFilter(query.$filter);
+  query.$select = parseSelect(query.$select);
+  return query;
 };
-var parseOptions = (url, params) => {
-  const query22 = url.query;
+var fetchOptions = (url, params, primaryKey) => {
+  const query = url.query;
   let r = { $filter: {} };
   if (url.search) {
     const queryValid = {};
     for (const opt of _allowedQueryOptions) {
-      if (query22[opt]) {
-        queryValid[opt] = query22[opt];
+      if (query[opt]) {
+        queryValid[opt] = query[opt];
       }
     }
     const encodedQS = decodeURIComponent(querystring.stringify(queryValid));
     if (encodedQS) {
       r = queryTransform(parser.parse(encodedQS));
     }
-    if (query22.$count) {
+    if (query.$count) {
       r.$inlinecount = true;
     }
   }
@@ -579,64 +439,283 @@ var parseOptions = (url, params) => {
     r.$count = true;
   }
   if (params.id) {
-    r.$filter._id = params.id;
+    r.$filter[primaryKey] = params.id;
   }
   return r;
 };
-var { solid: solid3, cached: cached2 } = jet6.prop;
+var fetchBody = async (req) => {
+  if (req.body) {
+    return req.body;
+  }
+  return new Promise((res, rej) => {
+    let body = "";
+    req.on("data", (data) => {
+      if ((body += data).length > 1e6) {
+        rej({ code: 400, msg: "Request is too long" });
+      }
+    });
+    req.on("end", (_) => {
+      try {
+        res(JSON.parse(body));
+      } catch (e) {
+        rej({ code: 400, msg: e.message });
+      }
+    });
+  });
+};
+var { solid: solid3, cached: cached2 } = jet7.prop;
 var Context = class {
   constructor(server, req) {
-    solid3.all(this, {
-      server
-    });
+    solid3(this, "server", server);
     cached2.all(this, {}, {
       method: (_) => req.method.toLowerCase(),
       url: (_) => parseUrl(req.originalUrl || req.url, true),
       route: (_) => server.findRoute(this.method, this.url.pathname),
       params: (_) => this.route.parseParams(this.url.pathname),
-      options: (_) => parseOptions(this.url, this.params),
-      entity: (_) => server.findEntity(this.params.collection),
-      keys: (_) => Object.entries(this.entity.entityType).filter(([k, v]) => v?.key).map(([k]) => k)
+      entity: (_) => server.model.entitySets[this.params.collection],
+      options: (_) => fetchOptions(this.url, this.params, this.entity.primaryKey)
     });
+    let body;
+    solid3(this, "getBody", async (isOne = true) => this.entity.props.toAdapter(body || (body = await fetchBody(req)), isOne));
     solid3(req, "context", this);
   }
+  getScope(ids, quote = "") {
+    const { server: { url }, params: { collection } } = this;
+    return url + "/" + getScope(collection, ids, quote);
+  }
+  getScopeMeta(ids, quote = "") {
+    const { server: { url }, params: { collection } } = this;
+    return url + "/" + getScopeMeta(collection, ids, quote);
+  }
+  getScopeMetaEntity(ids, quote = "") {
+    return this.getScopeMeta(ids, quote) + "/$entity";
+  }
 };
-var { query, insert, update, remove, collections, metadata, count } = methods_default;
-var { solid: solid4, virtual: virtual2 } = jet7.prop;
+var { solid: solid4, cached: cached3 } = jet8.prop;
+var validateChildDefault = (parent, name, child) => child;
+var ModelPack = class {
+  constructor(parent, name, childs, validateChild) {
+    const _p = {};
+    solid4(this, "name", name, false);
+    solid4(this, "parent", parent, false);
+    validateChild = validateChild || validateChildDefault;
+    childs = Object.jet.to(childs);
+    for (let name2 in childs) {
+      const child = childs[name2];
+      cached3(this, _p, name2, (_) => validateChild(this, name2, child));
+    }
+  }
+  msg(text, ...path) {
+    return this.parent.msg(text, this.name, ...path);
+  }
+  toString() {
+    return this.name;
+  }
+};
+var propTypes = [
+  "Edm.Int16",
+  "Edm.Int32",
+  "Edm.Int64",
+  "Edm.Boolean",
+  "Edm.String",
+  "Edm.Date",
+  "Edm.Single",
+  "Edm.Double",
+  "Edm.Decimal",
+  "Edm.TimeOfDay",
+  "Edm.DateTimeOffset",
+  "Edm.Byte",
+  "Edm.SByte3",
+  "Edm.Binary"
+];
+var knownActions = [
+  "query",
+  "count",
+  "insert",
+  "update",
+  "remove"
+];
+var { solid: solid5 } = jet9.prop;
+var convert = (prop, method, vals, subCollection) => {
+  const { isCollection, complex, primitive, name } = prop;
+  if (name.startsWith("@odata")) {
+    return;
+  }
+  if (!subCollection && isCollection) {
+    return (Array.isArray(vals) ? vals : [vals]).map((v) => convert(prop, method, v, true));
+  }
+  if (complex) {
+    return complex[method](vals);
+  }
+  return prop.parent.parent.parent.converter[primitive](vals, method);
+};
+var ModelProp = class extends ModelPack {
+  constructor(parent, name, attrs) {
+    super(parent, name, attrs);
+    const model2 = parent.parent.parent;
+    const namespace = model2.namespace;
+    const type = this.type;
+    if (!type) {
+      throw Error(this.msg(`missing!`, "type"));
+    }
+    const unCollection = unwrap(type, "Collection(", ")");
+    solid5(this, "isCollection", !!unCollection);
+    const complexName = unwrap(unCollection || type, namespace + ".");
+    const complex = model2.complexTypes[complexName];
+    if (complexName && !complex) {
+      throw Error(this.msg(`definition missing at 'model.complexTypes.${complexName}'`, "type"));
+    }
+    solid5(this, "primitive", complex ? void 0 : unCollection || type);
+    solid5(this, "complex", complex);
+    if (!complex && !propTypes.includes(this.primitive)) {
+      throw Error(this.msg(`invalid value '${this.type}' - accepts one of: '${propTypes.join(", ")}'`, "type"));
+    }
+  }
+  toAdapter(val) {
+    return convert(this, "toAdapter", val);
+  }
+  toResponse(val) {
+    return convert(this, "toResponse", val);
+  }
+};
+var convert2 = (type, method, vals, isOne) => {
+  vals = !isOne && !Array.isArray(vals) ? [vals] : vals;
+  if (!isOne) {
+    return vals.map((val) => convert2(type, method, val, true));
+  }
+  const r = {};
+  if (typeof vals === "object") {
+    for (let i in vals) {
+      const prop = type[i];
+      if (!prop) {
+        continue;
+      }
+      const val = prop[method](vals[i]);
+      if (val !== void 0) {
+        r[i] = val;
+      }
+    }
+  }
+  return r;
+};
+var ModelType = class extends ModelPack {
+  toAdapter(vals, isOne = true) {
+    return convert2(this, "toAdapter", vals, isOne);
+  }
+  toResponse(vals, isOne = true) {
+    return convert2(this, "toResponse", vals, isOne);
+  }
+};
+var { solid: solid6, cached: cached4 } = jet11.prop;
+var ModelEntity = class extends ModelPack {
+  constructor(parent, name, attrs) {
+    super(parent, name, attrs);
+    const model2 = parent.parent;
+    const namespace = model2.namespace;
+    const entityType = this.entityType;
+    if (!entityType) {
+      throw Error(this.msg(`missing!`, "entityType"));
+    }
+    const typeName = unwrap(entityType, namespace + ".");
+    if (!typeName) {
+      throw Error(this.msg(`missing namespace '${namespace}' prefix`, "entityType"));
+    }
+    const props = model2.entityTypes[typeName];
+    if (!props) {
+      throw Error(this.msg(`definition missing at 'model.entityTypes.${typeName}'`, "entityType"));
+    }
+    solid6(this, "props", props);
+    for (const propName in props) {
+      if (!props[propName].key) {
+        continue;
+      }
+      if (this.primaryKey) {
+        throw Error(this.msg(`primaryKey is allready defined as ${this.primaryKey}`, propName));
+      }
+      solid6(this, "primaryKey", propName);
+    }
+    if (!this.primaryKey) {
+      throw Error(this.msg(`primaryKey is missing`));
+    }
+  }
+};
+var { solid: solid7, cached: cached5 } = jet12.prop;
+var createProp = (type, name, attrs) => new ModelProp(type, name, attrs);
+var createEntity = (sets, name, attrs) => new ModelEntity(sets, name, attrs);
+var createType = (types, name, props) => new ModelType(types, name, props, createProp);
+var Model = class {
+  constructor(server, model2, converter) {
+    const { namespace, entityTypes, entitySets, complexTypes } = Object.jet.to(model2);
+    solid7(this, "server", server, false);
+    solid7(this, "namespace", String.jet.to(namespace));
+    if (!this.namespace) {
+      throw Error(this.msg("namespace missing"));
+    }
+    solid7(this, "complexTypes", new ModelPack(this, "complexTypes", complexTypes, createType));
+    solid7(this, "entityTypes", new ModelPack(this, "entityTypes", entityTypes, createType));
+    solid7(this, "entitySets", new ModelPack(this, "entitySets", entitySets, createEntity));
+    solid7(this, "converter", {}, false);
+    const csr = jet12.isRunnable(converter);
+    if (!csr) {
+      converter = Object.jet.to(converter);
+    }
+    propTypes.map((t) => {
+      const fce = csr ? (v, method) => converter(t, v, method) : jet12.isRunnable(converter[t]) ? converter[t] : (v) => v;
+      solid7(this.converter, t, fce);
+    });
+  }
+  msg(text, ...path) {
+    path = path.join(".") || "";
+    if (path) {
+      path = "." + path;
+    }
+    return this.server.msg("model" + path + " " + text);
+  }
+  checkNamespace(str) {
+    return isWrapped(str, this.namespace + ".");
+  }
+  stripNamespace(str) {
+    return unwrap(str, this.namespace + ".");
+  }
+};
+var { solid: solid8, virtual: virtual2, cached: cached6 } = jet13.prop;
 var Server = class {
   constructor(config = {}) {
-    const { url, model: model2, cors, resolver } = config;
+    const { url, model: model2, cors, adapter, converter } = config;
     const [uid, _p] = vault.set({
       url,
-      model: model2,
       cors,
       routes: {},
-      resolver
+      adapter
     });
-    solid4.all(this, {
+    solid8.all(this, {
       uid
     }, false);
     virtual2.all(this, {
       url: (_) => _p.url,
-      model: (_) => _p.model
+      resolver: (_) => this.resolve.bind(this)
     });
-    this.addRoute("get", "/", collections);
-    this.addRoute("get", "/$metadata", metadata);
-    this.addRoute("get", "/:collection/$count", count);
-    this.addRoute("get", "/:collection\\(:id\\)", query);
-    this.addRoute("get", "/:collection", query);
-    this.addRoute("patch", "/:collection\\(:id\\)", update);
-    this.addRoute("delete", "/:collection\\(:id\\)", remove);
-    this.addRoute("post", "/:collection", insert);
+    cached6(this, _p, "model", (_) => new Model(this, model2, converter));
+    this.addRoute("get", "/", "collections");
+    this.addRoute("get", "/$metadata", "metadata");
+    this.addRoute("get", "/:collection/$count", "count");
+    this.addRoute("get", "/:collection\\(:id\\)", "query");
+    this.addRoute("get", "/:collection", "query");
+    this.addRoute("patch", "/:collection\\(:id\\)", "update");
+    this.addRoute("delete", "/:collection\\(:id\\)", "remove");
+    this.addRoute("post", "/:collection", "insert");
     if (cors) {
       this.addRoute("options", "/(.*)", () => {
       });
     }
   }
-  addRoute(method, path, resolver) {
+  msg(text) {
+    return "ODataServer: " + text;
+  }
+  addRoute(method, path, action) {
     const { routes } = vault.get(this.uid);
     const list = routes[method] || (routes[method] = []);
-    const route = new Route(method, path, resolver);
+    const route = new Route(method, path, action);
     list.push(route);
     return route;
   }
@@ -650,197 +729,144 @@ var Server = class {
     }
     throw { code: 404, msg: "Not found" };
   }
-  findEntity(name) {
-    const { namespace, entitySets, entityTypes } = this.model;
-    const es = entitySets[name];
-    const est = es ? es.entityType.split(".") : [];
-    if (namespace !== est[0]) {
-      throw { code: 404, msg: "Entity set not found" };
-    }
-    return {
-      ...es,
-      entityType: entityTypes[est[1]]
-    };
-  }
   async resolve(req, res) {
-    const _p = vault.get(this.uid);
-    if (!_p.url && !req.protocol) {
-      throw Error("Unable to determine server url from the request or value provided in the ODataServer constructor.");
-    }
-    const path = (req.originalUrl || "/").replace(new RegExp(escapeRegExp(req.url) + "$"), "");
-    if (!_p.url) {
-      _p.url = req.protocol + "://" + req.get("host") + path;
-    }
-    ;
-    const context = new Context(this, req);
-    res.setHeader("OData-Version", "4.0");
-    res.setHeader("DataServiceVersion", "4.0");
-    if (_p.cors) {
-      res.setHeader("Access-Control-Allow-Origin", _p.cors);
-    }
-    const result = await context.route.resolve(req, res, _p.resolver);
-    if (Object.jet.is(result)) {
-      res.stateCode = 200;
+    try {
+      const _p = vault.get(this.uid);
+      if (!_p.url && !req.protocol) {
+        throw Error(this.text("Unable to determine server url from the request or value provided in the ODataServer constructor."));
+      }
+      const path = (req.originalUrl || "/").replace(new RegExp(escapeRegExp(req.url) + "$"), "");
+      if (!_p.url) {
+        _p.url = req.protocol + "://" + req.get("host") + path;
+      }
+      ;
+      const context = new Context(this, req);
+      res.setHeader("OData-Version", "4.0");
+      res.setHeader("DataServiceVersion", "4.0");
+      if (_p.cors) {
+        res.setHeader("Access-Control-Allow-Origin", _p.cors);
+      }
+      const { action, resolver } = context.route;
+      if (!knownActions.includes(action)) {
+        await resolver(req, res);
+        return;
+      }
+      if (!_p.adapter[action]) {
+        throw { code: 501, msg: "Not Implemented" };
+      }
+      await resolver(req, res, await _p.adapter[action](context));
+    } catch (e) {
+      const error = {
+        code: e?.code || 500,
+        message: e?.msg || e?.message || "Unknown error",
+        stack: e?.stack,
+        method: req.method,
+        target: req.url,
+        details: []
+      };
+      res.statusCode = error.code;
       res.setHeader("Content-Type", "application/json");
-      res.end(JSON.stringify(result));
-    } else if (result) {
-      res.stateCode = 200;
-      res.end(result);
-    } else {
-      res.stateCode = 204;
-    }
-  }
-  getResolver() {
-    return (req, res) => {
-      this.resolve(req, res).catch((e) => {
-        const error = {
-          code: e?.code || 500,
-          message: e?.msg || e?.message || "Unknown error",
-          stack: e?.stack,
-          target: req.url,
-          details: []
-        };
-        res.statusCode = error.code;
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ error }));
-      });
-    };
-  }
-  pruneResults(collection, res) {
-    prune(this, collection, res);
-  }
-  base64ToBuffer(collection, doc) {
-    const model2 = this.model;
-    const entitySet = model2.entitySets[collection];
-    const entityType = model2.entityTypes[entitySet.entityType.replace(model2.namespace + ".", "")];
-    for (const prop in doc) {
-      if (!prop) {
-        continue;
-      }
-      const propDef = entityType[prop];
-      if (!propDef) {
-        continue;
-      }
-      if (propDef.type === "Edm.Binary") {
-        doc[prop] = Buffer2.from(doc[prop], "base64");
-      }
-    }
-  }
-  bufferToBase64(collection, res) {
-    const model2 = this.model;
-    const entitySet = model2.entitySets[collection];
-    const entityType = model2.entityTypes[entitySet.entityType.replace(model2.namespace + ".", "")];
-    for (const i in res) {
-      const doc = res[i];
-      for (const prop in doc) {
-        if (!prop) {
-          continue;
-        }
-        const propDef = entityType[prop];
-        if (!propDef) {
-          continue;
-        }
-        if (propDef.type === "Edm.Binary") {
-          if (!Buffer2.isBuffer(doc[prop]) && !doc[prop].length) {
-            let obj = doc[prop];
-            obj = obj.data || obj;
-            doc[prop] = Object.keys(obj).map(function(key) {
-              return obj[key];
-            });
-          }
-          if (doc[prop]._bsontype === "Binary") {
-            doc[prop] = doc[prop].buffer;
-          }
-          doc[prop] = Buffer2.from(doc[prop]).toString("base64");
-        }
-      }
+      res.end(JSON.stringify({ error }));
     }
   }
 };
 var src_default = (options) => new Server(options);
 
-// dist/adapter/mongo.js
+// dist/adapter/MongoAdapter.js
 import { ObjectId } from "mongodb";
-import jet8 from "@randajan/jet-core";
-var { solid: solid5, cached: cached3 } = jet8.prop;
-var _convertStringsToObjectIds = (obj) => jet8.map(obj, (val, fullKey, parentKey, key) => {
-  return key === "_id" ? ObjectId(val) : val;
-}, true);
-var update2 = async (collection, { query: query22, data }) => {
-  if (data.$set) {
-    delete data.$set._id;
+import jet14 from "@randajan/jet-core";
+var { solid: solid9 } = jet14.prop;
+var MongoAdapter = class {
+  constructor(connect) {
+    solid9(this, "connect", connect, false);
   }
-  const res = await collection.updateOne(query22, data);
-  if (res.matchedCount !== 1) {
-    throw Error("Update not successful");
+  optValidator(val, fk, pk, key) {
+    return key === "_id" ? ObjectId(val) : val;
   }
-  return res.matchedCount;
-};
-var remove2 = async (collection, { options }) => {
-  const { $select, $sort, $skip, $limit, $count, $inlinecount, $filter } = _convertStringsToObjectIds(options);
-  const res = await collection.deleteOne($filter);
-  if (res.deletedCount < 1) {
-    throw { code: 410, msg: "Gone" };
+  optValidate(o) {
+    return jet14.map(o, this.optValidator.bind(this), true);
   }
-  return res.deletedCount;
-};
-var insert2 = async (collection, { data }) => {
-  const value = await collection.insertOne(data);
-  return collection.findOne({ _id: value.insertedId });
-};
-var query2 = async (collection, { options }) => {
-  const { $select, $sort, $skip, $limit, $count, $inlinecount, $filter } = _convertStringsToObjectIds(options);
-  let qr = collection.find($filter, { projection: $select || {} });
-  if ($sort) {
-    qr = qr.sort($sort);
+  async getDB(context) {
+    return (await this.connect(context)).db(context.server.model.namespace);
   }
-  if ($skip) {
-    qr = qr.skip($skip);
+  async getCollection(context) {
+    return (await this.getDB(context)).collection(context.params.collection);
   }
-  if ($limit) {
-    qr = qr.limit($limit);
-  }
-  if ($count) {
-    return qr.count();
-  }
-  const value = await qr.toArray();
-  if (!$inlinecount) {
-    return value;
-  }
-  const count2 = await collection.find($filter).count();
-  return { count: count2, value };
-};
-var mongo_default = (getDB) => {
-  const _actions = { update: update2, remove: remove2, query: query2, insert: insert2 };
-  return async (actionName, context) => {
-    const action = _actions[actionName];
-    if (!action) {
-      throw Error(`Unknown action '${actionName}'`);
+  async remove(context) {
+    const col = await this.getCollection(context);
+    const { options } = context;
+    const { $filter } = this.optValidate({ $filter: options.$filter });
+    const res = await col.deleteOne($filter);
+    if (res.deletedCount < 1) {
+      throw { code: 410, msg: "Gone" };
     }
-    const db = await getDB();
-    const collection = db.collection(context.params.collection);
-    return action(collection, context);
-  };
+    return res.deletedCount;
+  }
+  async update(context) {
+    const col = await this.getCollection(context);
+    const { options, getBody } = context;
+    const { $filter } = this.optValidate({ $filter: options.$filter });
+    const res = await col.updateOne($filter, { $set: await getBody(true) });
+    if (res.matchedCount < 1) {
+      throw { code: 410, msg: "Gone" };
+    }
+    return res.matchedCount;
+  }
+  async insert(context) {
+    const col = await this.getCollection(context);
+    const { primaryKey } = context.entity;
+    const body = await context.getBody(true);
+    if (!body[primaryKey]) {
+      body[primaryKey] = jet14.uid(16);
+    }
+    const value = await col.insertOne(body);
+    return col.findOne({ _id: value.insertedId });
+  }
+  async query(context) {
+    const col = await this.getCollection(context);
+    const { options } = context;
+    const { $select, $sort, $skip, $limit, $count, $inlinecount, $filter } = this.optValidate(options);
+    let qr = col.find($filter, { projection: $select || {} });
+    if ($sort) {
+      qr = qr.sort($sort);
+    }
+    if ($skip) {
+      qr = qr.skip($skip);
+    }
+    if ($limit) {
+      qr = qr.limit($limit);
+    }
+    if ($count) {
+      return qr.count();
+    }
+    const value = await qr.toArray();
+    if (!$inlinecount) {
+      return value;
+    }
+    const count = await col.find($filter).count();
+    return { count, value };
+  }
 };
+var MongoAdapter_default = (connect) => new MongoAdapter(connect);
 
 // demo/src/index.js
 import { MongoClient } from "mongodb";
 import http from "http";
 var _mongos = {};
 var _protocolSuffix = /:\/\//;
-var getMongo = async (dbUrl, options) => {
-  dbUrl = dbUrl || "localhost:27017";
+var getMongo = async (context) => {
+  let dbUrl = "localhost:27017";
   if (!_protocolSuffix.test(dbUrl)) {
     dbUrl = "mongodb://" + dbUrl;
   }
-  if (_mongos[dbUrl]) {
-    return _mongos[dbUrl];
+  let mongo = _mongos[dbUrl];
+  if (!mongo) {
+    mongo = _mongos[dbUrl] = await MongoClient.connect(dbUrl);
+    process.on("exit", (_) => mongo.close());
+    mongo.on("close", (_) => {
+      delete _mongos[dbUrl];
+    });
   }
-  const mongo = _mongos[dbUrl] = await MongoClient.connect(dbUrl, options);
-  process.on("exit", (_) => mongo.close());
-  mongo.on("close", (_) => {
-    delete _mongos[dbUrl];
-  });
   return mongo;
 };
 var model = {
@@ -851,12 +877,17 @@ var model = {
       "test": { "type": "Edm.String" }
     },
     "DebugRequestType": {
-      "at": { "type": "Edm.DateTime" },
+      "_id": { "type": "Edm.String", key: true },
+      "at": { "type": "Edm.TimeOfDay" },
       "method": { "type": "Edm.String" },
       "path": { "type": "Edm.String" },
       "query": { "type": "Edm.String" },
       "headers": { "type": "Edm.String" },
       "body": { "type": "Edm.String" }
+    },
+    "BestType": {
+      "lol": { "type": "Edm.String", key: true },
+      "brutal": { "type": "Edm.String" }
     }
   },
   entitySets: {
@@ -865,15 +896,22 @@ var model = {
     },
     "_debug_requests": {
       entityType: "piapmo.DebugRequestType"
+    },
+    "bests": {
+      entityType: "piapmo.BestType"
     }
   }
 };
 var mongoApi = src_default({
   url: "http://localhost:1337",
   model,
-  resolver: mongo_default(async (_) => (await getMongo()).db("piapmo"))
+  adapter: MongoAdapter_default(getMongo),
+  converter: (primitive, value, method) => {
+    console.log(primitive, value, method);
+    return value;
+  }
 });
-http.createServer(mongoApi.getResolver()).listen(1337);
+http.createServer(mongoApi.resolver).listen(1337);
 export {
   mongoApi
 };

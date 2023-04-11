@@ -3,8 +3,7 @@ import query from "./query";
 import jet from "@randajan/jet-core";
 
 
-
-export default (req, res) => {
-  jet.prop.solid(req.odata.params, "count", true);
+export default async (req, res) => {
+  jet.prop.solid(req.context.params, "count", true);
   return query(req, res);
 }

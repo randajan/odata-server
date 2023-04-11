@@ -1,5 +1,5 @@
-export default (req, res) => {
-    const { model, url } = req.context.server
+export default async (req, res) => {
+    const { model, url } = req.context.server;
 
     const collections = [];
   
@@ -11,9 +11,12 @@ export default (req, res) => {
       });
     }
   
-    return {
+    const out = {
       '@odata.context': `${url}/$metadata`,
       value: collections,
     }
 
+    res.setHeader('Content-Type', 'application/json');
+    res.stateCode = 200;
+    res.end(JSON.stringify(out));
 }

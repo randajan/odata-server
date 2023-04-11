@@ -7,7 +7,7 @@ slib(false, {
     port:4002,
     mode:"node",
     lib:{
-        entries:["index.js", "adapter/mongo.js"],
+        entries:["index.js", "adapter/MongoAdapter.js"],
         plugins:[ImportGlobPlugin.default()]
     },
     demo:{

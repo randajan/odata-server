@@ -103,7 +103,7 @@ const queryTransform = (query) => {
   return query;
 }
 
-export const parseOptions = (url, params) => {
+export const fetchOptions = (url, params, primaryKey) => {
   const query = url.query;
 
   let r = { $filter: {} };
@@ -120,7 +120,7 @@ export const parseOptions = (url, params) => {
   }
 
   if (params.count) { r.$count = true; }
-  if (params.id) { r.$filter._id = params.id; }
+  if (params.id) { r.$filter[primaryKey] = params.id; }
 
   return r;
 }

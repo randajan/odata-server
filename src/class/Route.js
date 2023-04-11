@@ -1,24 +1,31 @@
 import { pathToRegexp } from 'path-to-regexp';
 import jet from "@randajan/jet-core";
 
+import actions from "../actions";
+
 const { solid, cached, virtual } = jet.prop;
 
 const decodeParam = param=>param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
 
 export class Route {
-    constructor(method, path, resolve) {
+    constructor(method, path, action) {
 
         const keys = [];
-
-        solid(this, "resolve", resolve);
 
         cached(this, {}, "regex", _ => pathToRegexp(path, keys), false);
         virtual(this, "keys", _ => { this.regex; return keys; }, false);
 
         solid.all(this, {
             method,
-            path
+            path,
+            action,
         });
+
+        solid(this, "resolver", actions[action]);
+
+        if (!this.resolver) {
+            throw Error(`Route action '${action}' is not implemented. Available actions: '${Object.keys(actions).join(", ")}' `);
+        }
 
     }
 
