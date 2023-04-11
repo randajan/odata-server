@@ -1,5 +1,4 @@
 // dist/index.js
-import { Buffer as Buffer2 } from "safe-buffer";
 import jet12 from "@randajan/jet-core";
 import jet from "@randajan/jet-core";
 import { pathToRegexp } from "path-to-regexp";

@@ -1,4 +1,3 @@
-import { Buffer } from "safe-buffer";
 import jet from "@randajan/jet-core";
 
 import { escapeRegExp, vault } from "../tools";

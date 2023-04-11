@@ -5,7 +5,6 @@ var __export = (target, all) => {
 };
 
 // src/class/Server.js
-import { Buffer as Buffer2 } from "safe-buffer";
 import jet12 from "@randajan/jet-core";
 
 // src/tools.js
