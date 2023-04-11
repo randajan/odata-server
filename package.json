@@ -1,5 +1,5 @@
 {
-  "name": "odata-server",
+  "name": "@randajan/odata-server",
   "version": "1.4.2",
   "description": "OData server with adapter for mongodb",
   "repository": "randajan/odata-server",
