@@ -1,8 +1,8 @@
 {
-  "name": "simple-odata-server",
+  "name": "odata-server",
   "version": "1.4.0",
-  "description": "OData server with adapter for mongodb and nedb",
-  "repository": "pofider/node-simple-odata-server",
+  "description": "OData server with adapter for mongodb",
+  "repository": "randajan/odata-server",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
