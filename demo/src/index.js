@@ -29,6 +29,7 @@ const getMongo = async context=>{
         mongo.current = await MongoClient.connect(mongo.url);
         mongo.current.on("close", _=>{ delete mongo.current; });
         process.on("exit", _=>{
+            console.log("AAA");
             if (mongo.current) { mongo.current.close(); }
         });
     }

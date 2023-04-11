@@ -815,6 +815,7 @@ var getMongo = async (context) => {
       delete mongo.current;
     });
     process.on("exit", (_) => {
+      console.log("AAA");
       if (mongo.current) {
         mongo.current.close();
       }

@@ -124,7 +124,6 @@ Argument `method` represent the direction of conversion and it could be one of:
 1. "toAdapter": it represent the value coming from the request
 2. "toResponse": it represent value coming from the adapter
 
-
 ## Limitations
 - no entity links
 - no batch operations
