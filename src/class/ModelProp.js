@@ -2,12 +2,11 @@ import jet from "@randajan/jet-core";
 
 import { propTypes } from "../consts";
 import { unwrap } from "../tools";
-import { ModelPack } from "./ModelPack";
 
 const { solid } = jet.prop;
 
 const convert = (prop, method, vals, subCollection)=> {
-    const { isCollection, complex, primitive, name } = prop;
+    const { isCollection, complex, primitive, name, model } = prop;
     if (name.startsWith("@odata")) { return; }
 
     if (!subCollection && isCollection) {
@@ -16,32 +15,33 @@ const convert = (prop, method, vals, subCollection)=> {
 
     if (complex) { return complex[method](vals); }
 
-    return prop.parent.parent.parent.converter[primitive](vals, method);
+    return model.converter[primitive](vals, method);
 }
 
-export class ModelProp extends ModelPack {
+export class ModelProp {
 
-    constructor(parent, name, attrs) {
-        super(parent, name, attrs);
+    constructor(model, msg, name, attrs) {
 
-        const model = parent.parent.parent;
-        const namespace = model.namespace;
-        const type = this.type;
+        solid(this, "model", model, false);
+        solid(this, "name", name);
 
-        if (!type) { throw Error(this.msg(`missing!`, "type")); }
+        attrs = Object.jet.to(attrs);
+        for (const i in attrs) { solid(this, i, attrs[i]); }
 
-        const unCollection = unwrap(type, "Collection(", ")");
+        if (!this.type) { throw Error(msg(`missing!`, name, "type")); }
+
+        const unCollection = unwrap(this.type, "Collection(", ")");
         solid(this, "isCollection", !!unCollection);
 
-        const complexName = unwrap(unCollection || type, namespace+".");
+        const complexName = unwrap(unCollection || this.type, model.namespace+".");
         const complex = model.complexTypes[complexName];
-        if (complexName && !complex) { throw Error(this.msg(`definition missing at 'model.complexTypes.${complexName}'`, "type")); }
+        if (complexName && !complex) { throw Error(msg(`definition missing at 'model.complexTypes.${complexName}'`, name, "type")); }
 
-        solid(this, "primitive", complex ? undefined : (unCollection || type));
+        solid(this, "primitive", complex ? undefined : (unCollection || this.type));
         solid(this, "complex", complex);
 
         if (!complex && !propTypes.includes(this.primitive)) {
-            throw Error(this.msg(`invalid value '${this.type}' - accepts one of: '${propTypes.join(", ")}'`, "type"));
+            throw Error(msg(`invalid value '${this.type}' - accepts one of: '${propTypes.join(", ")}'`, name, "type"));
         }
 
     }

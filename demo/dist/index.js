@@ -1,82 +1,22 @@
-// <define:__slib_info>
-var define_slib_info_default = { isProd: false, name: "simple-odata-server", description: "OData server with adapter for mongodb and nedb", version: "1.2.4", author: "Jan Randa", env: "dev", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
-
-// node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
-import chalkNative from "chalk";
-var chalkProps = Object.getOwnPropertyNames(Object.getPrototypeOf(chalkNative)).filter((v) => v !== "constructor");
-var Logger = class extends Function {
-  constructor(formater, chalkInit) {
-    super();
-    const chalk = chalkInit || chalkNative;
-    const log2 = (...msgs) => {
-      console.log(chalk(formater(msgs)));
-    };
-    const self = Object.setPrototypeOf(log2.bind(), new.target.prototype);
-    for (const prop of chalkProps) {
-      Object.defineProperty(self, prop, { get: (_) => new Logger(formater, chalk[prop]), enumerable: false });
-    }
-    return self;
-  }
-};
-var logger = (...prefixes) => {
-  const now = (_) => new Date().toLocaleTimeString("cs-CZ");
-  prefixes = prefixes.filter((v) => !!v).join(" ");
-  return new Logger((msgs) => `${prefixes} | ${now()} | ${msgs.join(" ")}`);
-};
-
-// node_modules/@randajan/simple-lib/dist/chunk-DSETVJ5D.js
-var enumerable = true;
-var lockObject = (o) => {
-  if (typeof o !== "object") {
-    return o;
-  }
-  const r = {};
-  for (const i in o) {
-    const descriptor = { enumerable };
-    let val = o[i];
-    if (val instanceof Array) {
-      descriptor.get = (_) => [...val];
-    } else {
-      descriptor.value = lockObject(val);
-    }
-    Object.defineProperty(r, i, descriptor);
-  }
-  return r;
-};
-var info = lockObject(define_slib_info_default);
-
-// node_modules/@randajan/simple-lib/dist/node/index.js
-import { parentPort } from "worker_threads";
-var log = logger(info.name, info.version, info.env);
-parentPort.on("message", (msg) => {
-  if (msg === "shutdown") {
-    process.exit(0);
-  }
-});
-process.on("uncaughtException", (e) => {
-  console.log(e.stack);
-});
-
 // dist/index.js
 import { Buffer as Buffer2 } from "safe-buffer";
-import jet13 from "@randajan/jet-core";
+import jet12 from "@randajan/jet-core";
 import jet from "@randajan/jet-core";
 import { pathToRegexp } from "path-to-regexp";
-import jet4 from "@randajan/jet-core";
+import jet5 from "@randajan/jet-core";
 import jet2 from "@randajan/jet-core";
 import jet3 from "@randajan/jet-core";
 import builder from "xmlbuilder";
+import jet4 from "@randajan/jet-core";
 import { parse as parseUrl } from "url";
-import jet7 from "@randajan/jet-core";
+import jet8 from "@randajan/jet-core";
 import parser from "odata-parser";
 import querystring from "querystring";
-import jet5 from "@randajan/jet-core";
 import jet6 from "@randajan/jet-core";
-import jet12 from "@randajan/jet-core";
-import jet8 from "@randajan/jet-core";
+import jet7 from "@randajan/jet-core";
+import jet11 from "@randajan/jet-core";
 import jet9 from "@randajan/jet-core";
 import jet10 from "@randajan/jet-core";
-import jet11 from "@randajan/jet-core";
 var __defProp = Object.defineProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -118,55 +58,66 @@ var count_exports = {};
 __export(count_exports, {
   default: () => count_default
 });
-var query_exports = {};
-__export(query_exports, {
-  default: () => query_default
-});
-var query_default = async (req, res, raw) => {
+var count_default = async (req, res, raw) => {
   const { context } = req;
-  const { options: { $select, $filter, $inlinecount }, entity: { primaryKey, props } } = context;
-  let out = {};
-  if ($filter.hasOwnProperty(primaryKey)) {
-    out["@odata.context"] = context.getScopeMetaEntity($select ? Object.keys($select) : "");
-    if (raw.length) {
-      Object.assign(out, props.toResponse(raw[0]));
-    }
-  } else {
-    out["@odata.context"] = context.getScopeMeta($select ? Object.keys($select) : "");
-    out.value = props.toResponse(raw, false);
-  }
-  if ($inlinecount) {
-    out["@odata.count"] = raw.count;
-    out.value = raw.value;
-  }
+  const { options: { $select } } = context;
+  const count = Math.max(0, Number.jet.to(raw));
+  const out = {
+    "@odata.context": context.getScopeMeta($select ? Object.keys($select) : ""),
+    "@odata.count": count,
+    value: count
+  };
   res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
   res.stateCode = 200;
   res.end(JSON.stringify(out));
-};
-var count_default = async (req, res) => {
-  jet3.prop.solid(req.context.params, "count", true);
-  return query_default(req, res);
 };
 var insert_exports = {};
 __export(insert_exports, {
   default: () => insert_default
 });
-var sortProperties = (obj) => {
-  const sortedKeys = Object.keys(obj).sort((a, b) => a.startsWith("@") ? -1 : b.startsWith("@") ? 1 : 0);
-  const sortedObj = {};
-  for (const key of sortedKeys) {
-    sortedObj[key] = obj[key];
+var { cached } = jet3.prop;
+var validateChildDefault = (model2, msg, name, child) => child;
+var assignPack = (obj, model2, msg, name, childs, validateChild) => {
+  const _p = {};
+  const _msg = (text, ...path) => msg(text, name, ...path);
+  validateChild = validateChild || validateChildDefault;
+  childs = Object.jet.to(childs);
+  for (let name2 in childs) {
+    const child = childs[name2];
+    cached(obj, _p, name2, (_) => validateChild(model2, _msg, name2, child));
   }
-  return sortedObj;
+  return obj;
 };
+var convert = (method, props, vals, isOne) => {
+  vals = !isOne && !Array.isArray(vals) ? [vals] : vals;
+  if (!isOne) {
+    return vals.map((val) => convert(method, props, val, true));
+  }
+  const r = {};
+  if (typeof vals === "object") {
+    for (let i in vals) {
+      const prop = props[i];
+      if (!prop) {
+        continue;
+      }
+      const val = prop[method](vals[i]);
+      if (val !== void 0) {
+        r[i] = val;
+      }
+    }
+  }
+  return r;
+};
+var convertToAdapter = (props, vals, isOne = true) => convert("toAdapter", props, vals, isOne);
+var convertToResponse = (props, vals, isOne = true) => convert("toResponse", props, vals, isOne);
 var insert_default = async (req, res, raw) => {
   const { context } = req;
   const { props, primaryKey } = context.entity;
-  let out = props.toResponse(raw);
-  const id = out[primaryKey];
-  out["@odata.id"] = out["@odata.editLink"] = context.getScope(id, "'");
+  const id = raw[primaryKey];
+  const out = {};
   out["@odata.context"] = context.getScopeMetaEntity();
-  out = sortProperties(out);
+  out["@odata.id"] = out["@odata.editLink"] = context.getScope(id, "'");
+  Object.assign(out, convertToResponse(props, raw));
   res.setHeader("Content-Type", "application/json;odata.metadata=minimal;odata.streaming=true;IEEE754Compatible=false;charset=utf-8");
   res.setHeader("Location", context.getScope(encodeURI(id), "'"));
   res.statusCode = 201;
@@ -248,6 +199,31 @@ var metadata_default = async (req, res) => {
   res.stateCode = 200;
   res.end(out);
 };
+var query_exports = {};
+__export(query_exports, {
+  default: () => query_default
+});
+var query_default = async (req, res, raw) => {
+  const { context } = req;
+  const { options: { $select, $count }, entity: { props } } = context;
+  let out = {};
+  if (props.hasOwnProperty("id")) {
+    out["@odata.context"] = context.getScopeMetaEntity($select ? Object.keys($select) : "");
+    if (raw.length) {
+      Object.assign(out, convertToResponse(props, raw[0]));
+    }
+  } else {
+    out["@odata.context"] = context.getScopeMeta($select ? Object.keys($select) : "");
+    raw = convertToResponse(props, raw, false);
+    if ($count) {
+      out["@odata.count"] = raw.length;
+    }
+    out.value = raw;
+  }
+  res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
+  res.stateCode = 200;
+  res.end(JSON.stringify(out));
+};
 var remove_exports = {};
 __export(remove_exports, {
   default: () => remove_default
@@ -275,12 +251,12 @@ filenames.forEach((pathname, index) => {
   const name = pathname.substring(_prefix.length).slice(0, -_suffix.length);
   methods[name] = __default[index].default;
 });
-var { solid, cached, virtual } = jet4.prop;
+var { solid, cached: cached2, virtual } = jet5.prop;
 var decodeParam = (param) => param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
 var Route = class {
   constructor(method, path, action) {
     const keys = [];
-    cached(this, {}, "regex", (_) => pathToRegexp(path, keys), false);
+    cached2(this, {}, "regex", (_) => pathToRegexp(path, keys), false);
     virtual(this, "keys", (_) => {
       this.regex;
       return keys;
@@ -311,8 +287,8 @@ var Route = class {
     return params;
   }
 };
-var { solid: solid2 } = jet5.prop;
-var _allowedQueryOptions = ["$", "$expand", "$filter", "$format", "$inlinecount", "$select", "$skip", "$top", "$orderby"];
+var { solid: solid2 } = jet6.prop;
+var _allowedQueryOptions = ["$", "$expand", "$filter", "$format", "$select", "$skip", "$top", "$orderby"];
 var filterBug = (val) => Array.isArray(val) && val.length === 2 && val[0] === "null" && val[1] === "" ? null : val;
 var parseOp = (op, left, right, func, args) => {
   const r = op || [];
@@ -409,9 +385,6 @@ var queryTransform = (query) => {
   if (query.$top) {
     query.$limit = query.$top;
   }
-  if (query.$inlinecount === "allpages") {
-    query.$count = true;
-  }
   query.$sort = parseSort(query.$orderby);
   query.$filter = parseFilter(query.$filter);
   query.$select = parseSelect(query.$select);
@@ -427,13 +400,17 @@ var fetchOptions = (url, params, primaryKey) => {
         queryValid[opt] = query[opt];
       }
     }
+    if (Boolean.jet.to(query.$count)) {
+      queryValid["$inlinecount"] = "allpages";
+    }
     const encodedQS = decodeURIComponent(querystring.stringify(queryValid));
     if (encodedQS) {
       r = queryTransform(parser.parse(encodedQS));
     }
-    if (query.$count) {
-      r.$inlinecount = true;
+    if (r.$inlinecount) {
+      r.$count = true;
     }
+    delete r.$inlinecount;
   }
   if (params.count) {
     r.$count = true;
@@ -463,20 +440,20 @@ var fetchBody = async (req) => {
     });
   });
 };
-var { solid: solid3, cached: cached2 } = jet7.prop;
+var { solid: solid3, cached: cached3 } = jet8.prop;
 var Context = class {
   constructor(server, req) {
     solid3(this, "server", server);
-    cached2.all(this, {}, {
+    cached3.all(this, {}, {
       method: (_) => req.method.toLowerCase(),
       url: (_) => parseUrl(req.originalUrl || req.url, true),
       route: (_) => server.findRoute(this.method, this.url.pathname),
       params: (_) => this.route.parseParams(this.url.pathname),
-      entity: (_) => server.model.entitySets[this.params.collection],
+      entity: (_) => server.model.findEntity(this.params.collection),
       options: (_) => fetchOptions(this.url, this.params, this.entity.primaryKey)
     });
     let body;
-    solid3(this, "getBody", async (isOne = true) => this.entity.props.toAdapter(body || (body = await fetchBody(req)), isOne));
+    solid3(this, "getBody", async (isOne = true) => convertToAdapter(this.entity.props, body || (body = await fetchBody(req)), isOne));
     solid3(req, "context", this);
   }
   getScope(ids, quote = "") {
@@ -489,27 +466,6 @@ var Context = class {
   }
   getScopeMetaEntity(ids, quote = "") {
     return this.getScopeMeta(ids, quote) + "/$entity";
-  }
-};
-var { solid: solid4, cached: cached3 } = jet8.prop;
-var validateChildDefault = (parent, name, child) => child;
-var ModelPack = class {
-  constructor(parent, name, childs, validateChild) {
-    const _p = {};
-    solid4(this, "name", name, false);
-    solid4(this, "parent", parent, false);
-    validateChild = validateChild || validateChildDefault;
-    childs = Object.jet.to(childs);
-    for (let name2 in childs) {
-      const child = childs[name2];
-      cached3(this, _p, name2, (_) => validateChild(this, name2, child));
-    }
-  }
-  msg(text, ...path) {
-    return this.parent.msg(text, this.name, ...path);
-  }
-  toString() {
-    return this.name;
   }
 };
 var propTypes = [
@@ -535,133 +491,111 @@ var knownActions = [
   "update",
   "remove"
 ];
-var { solid: solid5 } = jet9.prop;
-var convert = (prop, method, vals, subCollection) => {
-  const { isCollection, complex, primitive, name } = prop;
+var { solid: solid4 } = jet9.prop;
+var convert2 = (prop, method, vals, subCollection) => {
+  const { isCollection, complex, primitive, name, model: model2 } = prop;
   if (name.startsWith("@odata")) {
     return;
   }
   if (!subCollection && isCollection) {
-    return (Array.isArray(vals) ? vals : [vals]).map((v) => convert(prop, method, v, true));
+    return (Array.isArray(vals) ? vals : [vals]).map((v) => convert2(prop, method, v, true));
   }
   if (complex) {
     return complex[method](vals);
   }
-  return prop.parent.parent.parent.converter[primitive](vals, method);
+  return model2.converter[primitive](vals, method);
 };
-var ModelProp = class extends ModelPack {
-  constructor(parent, name, attrs) {
-    super(parent, name, attrs);
-    const model2 = parent.parent.parent;
-    const namespace = model2.namespace;
-    const type = this.type;
-    if (!type) {
-      throw Error(this.msg(`missing!`, "type"));
+var ModelProp = class {
+  constructor(model2, msg, name, attrs) {
+    solid4(this, "model", model2, false);
+    solid4(this, "name", name);
+    attrs = Object.jet.to(attrs);
+    for (const i in attrs) {
+      solid4(this, i, attrs[i]);
     }
-    const unCollection = unwrap(type, "Collection(", ")");
-    solid5(this, "isCollection", !!unCollection);
-    const complexName = unwrap(unCollection || type, namespace + ".");
+    if (!this.type) {
+      throw Error(msg(`missing!`, name, "type"));
+    }
+    const unCollection = unwrap(this.type, "Collection(", ")");
+    solid4(this, "isCollection", !!unCollection);
+    const complexName = unwrap(unCollection || this.type, model2.namespace + ".");
     const complex = model2.complexTypes[complexName];
     if (complexName && !complex) {
-      throw Error(this.msg(`definition missing at 'model.complexTypes.${complexName}'`, "type"));
+      throw Error(msg(`definition missing at 'model.complexTypes.${complexName}'`, name, "type"));
     }
-    solid5(this, "primitive", complex ? void 0 : unCollection || type);
-    solid5(this, "complex", complex);
+    solid4(this, "primitive", complex ? void 0 : unCollection || this.type);
+    solid4(this, "complex", complex);
     if (!complex && !propTypes.includes(this.primitive)) {
-      throw Error(this.msg(`invalid value '${this.type}' - accepts one of: '${propTypes.join(", ")}'`, "type"));
+      throw Error(msg(`invalid value '${this.type}' - accepts one of: '${propTypes.join(", ")}'`, name, "type"));
     }
   }
   toAdapter(val) {
-    return convert(this, "toAdapter", val);
+    return convert2(this, "toAdapter", val);
   }
   toResponse(val) {
-    return convert(this, "toResponse", val);
+    return convert2(this, "toResponse", val);
   }
 };
-var convert2 = (type, method, vals, isOne) => {
-  vals = !isOne && !Array.isArray(vals) ? [vals] : vals;
-  if (!isOne) {
-    return vals.map((val) => convert2(type, method, val, true));
-  }
-  const r = {};
-  if (typeof vals === "object") {
-    for (let i in vals) {
-      const prop = type[i];
-      if (!prop) {
-        continue;
-      }
-      const val = prop[method](vals[i]);
-      if (val !== void 0) {
-        r[i] = val;
-      }
+var { solid: solid5, cached: cached4 } = jet10.prop;
+var ModelEntity = class {
+  constructor(model2, msg, name, attrs) {
+    solid5(this, "model", model2, false);
+    solid5(this, "name", name);
+    attrs = Object.jet.to(attrs);
+    for (const i in attrs) {
+      solid5(this, i, attrs[i]);
     }
-  }
-  return r;
-};
-var ModelType = class extends ModelPack {
-  toAdapter(vals, isOne = true) {
-    return convert2(this, "toAdapter", vals, isOne);
-  }
-  toResponse(vals, isOne = true) {
-    return convert2(this, "toResponse", vals, isOne);
-  }
-};
-var { solid: solid6, cached: cached4 } = jet11.prop;
-var ModelEntity = class extends ModelPack {
-  constructor(parent, name, attrs) {
-    super(parent, name, attrs);
-    const model2 = parent.parent;
-    const namespace = model2.namespace;
     const entityType = this.entityType;
     if (!entityType) {
-      throw Error(this.msg(`missing!`, "entityType"));
+      throw Error(msg(`missing!`, name, "entityType"));
     }
-    const typeName = unwrap(entityType, namespace + ".");
+    const typeName = unwrap(entityType, model2.namespace + ".");
     if (!typeName) {
-      throw Error(this.msg(`missing namespace '${namespace}' prefix`, "entityType"));
+      throw Error(msg(`missing namespace '${model2.namespace}' prefix`, name, "entityType"));
     }
     const props = model2.entityTypes[typeName];
     if (!props) {
-      throw Error(this.msg(`definition missing at 'model.entityTypes.${typeName}'`, "entityType"));
+      throw Error(msg(`definition missing at 'model.entityTypes.${typeName}'`, name, "entityType"));
     }
-    solid6(this, "props", props);
+    solid5(this, "props", props);
     for (const propName in props) {
       if (!props[propName].key) {
         continue;
       }
       if (this.primaryKey) {
-        throw Error(this.msg(`primaryKey is allready defined as ${this.primaryKey}`, propName));
+        throw Error(msg(`primaryKey is allready defined as ${this.primaryKey}`, name, propName));
       }
-      solid6(this, "primaryKey", propName);
+      solid5(this, "primaryKey", propName);
     }
     if (!this.primaryKey) {
-      throw Error(this.msg(`primaryKey is missing`));
+      throw Error(msg(`primaryKey is missing`, name));
     }
   }
 };
-var { solid: solid7, cached: cached5 } = jet12.prop;
-var createProp = (type, name, attrs) => new ModelProp(type, name, attrs);
-var createEntity = (sets, name, attrs) => new ModelEntity(sets, name, attrs);
-var createType = (types, name, props) => new ModelType(types, name, props, createProp);
+var { solid: solid6 } = jet11.prop;
+var createProp = (model2, msg, name, attrs) => new ModelProp(model2, msg, name, attrs);
+var createEntity = (model2, msg, name, attrs) => new ModelEntity(model2, msg, name, attrs);
+var createType = (model2, msg, name, props) => assignPack({}, model2, msg, name, props, createProp);
 var Model = class {
   constructor(server, model2, converter) {
     const { namespace, entityTypes, entitySets, complexTypes } = Object.jet.to(model2);
-    solid7(this, "server", server, false);
-    solid7(this, "namespace", String.jet.to(namespace));
+    solid6(this, "server", server, false);
+    solid6(this, "namespace", String.jet.to(namespace));
     if (!this.namespace) {
       throw Error(this.msg("namespace missing"));
     }
-    solid7(this, "complexTypes", new ModelPack(this, "complexTypes", complexTypes, createType));
-    solid7(this, "entityTypes", new ModelPack(this, "entityTypes", entityTypes, createType));
-    solid7(this, "entitySets", new ModelPack(this, "entitySets", entitySets, createEntity));
-    solid7(this, "converter", {}, false);
-    const csr = jet12.isRunnable(converter);
+    const _msg = this.msg.bind(this);
+    solid6(this, "complexTypes", assignPack({}, this, _msg, "complexTypes", complexTypes, createType));
+    solid6(this, "entityTypes", assignPack({}, this, _msg, "entityTypes", entityTypes, createType));
+    solid6(this, "entitySets", assignPack({}, this, _msg, "entitySets", entitySets, createEntity));
+    solid6(this, "converter", {}, false);
+    const csr = jet11.isRunnable(converter);
     if (!csr) {
       converter = Object.jet.to(converter);
     }
     propTypes.map((t) => {
-      const fce = csr ? (v, method) => converter(t, v, method) : jet12.isRunnable(converter[t]) ? converter[t] : (v) => v;
-      solid7(this.converter, t, fce);
+      const fce = csr ? (v, method) => converter(t, v, method) : jet11.isRunnable(converter[t]) ? converter[t] : (v) => v;
+      solid6(this.converter, t, fce);
     });
   }
   msg(text, ...path) {
@@ -677,8 +611,15 @@ var Model = class {
   stripNamespace(str) {
     return unwrap(str, this.namespace + ".");
   }
+  findEntity(name) {
+    const ent = this.entitySets[name];
+    if (!ent) {
+      throw Error(this.msg("not found!", "entitySets", name));
+    }
+    return ent;
+  }
 };
-var { solid: solid8, virtual: virtual2, cached: cached6 } = jet13.prop;
+var { solid: solid7, virtual: virtual2, cached: cached5 } = jet12.prop;
 var Server = class {
   constructor(config = {}) {
     const { url, model: model2, cors, adapter, converter } = config;
@@ -688,14 +629,14 @@ var Server = class {
       routes: {},
       adapter
     });
-    solid8.all(this, {
+    solid7.all(this, {
       uid
     }, false);
     virtual2.all(this, {
       url: (_) => _p.url,
       resolver: (_) => this.resolve.bind(this)
     });
-    cached6(this, _p, "model", (_) => new Model(this, model2, converter));
+    cached5(this, _p, "model", (_) => new Model(this, model2, converter));
     this.addRoute("get", "/", "collections");
     this.addRoute("get", "/$metadata", "metadata");
     this.addRoute("get", "/:collection/$count", "count");
@@ -747,6 +688,9 @@ var Server = class {
         res.setHeader("Access-Control-Allow-Origin", _p.cors);
       }
       const { action, resolver } = context.route;
+      if (action === "count") {
+        solid7(context.params, "count", true);
+      }
       if (!knownActions.includes(action)) {
         await resolver(req, res);
         return;
@@ -774,17 +718,17 @@ var src_default = (options) => new Server(options);
 
 // dist/adapter/MongoAdapter.js
 import { ObjectId } from "mongodb";
-import jet14 from "@randajan/jet-core";
-var { solid: solid9 } = jet14.prop;
+import jet13 from "@randajan/jet-core";
+var { solid: solid8 } = jet13.prop;
 var MongoAdapter = class {
   constructor(connect) {
-    solid9(this, "connect", connect, false);
+    solid8(this, "connect", connect, false);
   }
   optValidator(val, fk, pk, key) {
     return key === "_id" ? ObjectId(val) : val;
   }
   optValidate(o) {
-    return jet14.map(o, this.optValidator.bind(this), true);
+    return jet13.map(o, this.optValidator.bind(this), true);
   }
   async getDB(context) {
     return (await this.connect(context)).db(context.server.model.namespace);
@@ -816,8 +760,8 @@ var MongoAdapter = class {
     const col = await this.getCollection(context);
     const { primaryKey } = context.entity;
     const body = await context.getBody(true);
-    if (!body[primaryKey]) {
-      body[primaryKey] = jet14.uid(16);
+    if (primaryKey !== "_id" && !body[primaryKey]) {
+      body[primaryKey] = jet13.uid(16);
     }
     const value = await col.insertOne(body);
     return col.findOne({ _id: value.insertedId });
@@ -825,7 +769,7 @@ var MongoAdapter = class {
   async query(context) {
     const col = await this.getCollection(context);
     const { options } = context;
-    const { $select, $sort, $skip, $limit, $count, $inlinecount, $filter } = this.optValidate(options);
+    const { $select, $sort, $skip, $limit, $filter } = this.optValidate(options);
     let qr = col.find($filter, { projection: $select || {} });
     if ($sort) {
       qr = qr.sort($sort);
@@ -836,15 +780,10 @@ var MongoAdapter = class {
     if ($limit) {
       qr = qr.limit($limit);
     }
-    if ($count) {
-      return qr.count();
-    }
-    const value = await qr.toArray();
-    if (!$inlinecount) {
-      return value;
-    }
-    const count = await col.find($filter).count();
-    return { count, value };
+    return qr.toArray();
+  }
+  async count(context) {
+    return this.query(context);
   }
 };
 var MongoAdapter_default = (connect) => new MongoAdapter(connect);
@@ -852,55 +791,36 @@ var MongoAdapter_default = (connect) => new MongoAdapter(connect);
 // demo/src/index.js
 import { MongoClient } from "mongodb";
 import http from "http";
-var _mongos = {};
-var _protocolSuffix = /:\/\//;
-var getMongo = async (context) => {
-  let dbUrl = "localhost:27017";
-  if (!_protocolSuffix.test(dbUrl)) {
-    dbUrl = "mongodb://" + dbUrl;
-  }
-  let mongo = _mongos[dbUrl];
-  if (!mongo) {
-    mongo = _mongos[dbUrl] = await MongoClient.connect(dbUrl);
-    process.on("exit", (_) => mongo.close());
-    mongo.on("close", (_) => {
-      delete _mongos[dbUrl];
-    });
-  }
-  return mongo;
+var mongo = {
+  url: "mongodb://localhost:27017"
 };
 var model = {
-  namespace: "piapmo",
+  namespace: "main",
   entityTypes: {
     "UserType": {
       "_id": { "type": "Edm.String", key: true },
       "test": { "type": "Edm.String" }
-    },
-    "DebugRequestType": {
-      "_id": { "type": "Edm.String", key: true },
-      "at": { "type": "Edm.TimeOfDay" },
-      "method": { "type": "Edm.String" },
-      "path": { "type": "Edm.String" },
-      "query": { "type": "Edm.String" },
-      "headers": { "type": "Edm.String" },
-      "body": { "type": "Edm.String" }
-    },
-    "BestType": {
-      "lol": { "type": "Edm.String", key: true },
-      "brutal": { "type": "Edm.String" }
     }
   },
   entitySets: {
     "users": {
-      entityType: "piapmo.UserType"
-    },
-    "_debug_requests": {
-      entityType: "piapmo.DebugRequestType"
-    },
-    "bests": {
-      entityType: "piapmo.BestType"
+      entityType: "main.UserType"
     }
   }
+};
+var getMongo = async (context) => {
+  if (!mongo.current) {
+    mongo.current = await MongoClient.connect(mongo.url);
+    mongo.current.on("close", (_) => {
+      delete mongo.current;
+    });
+    process.on("exit", (_) => {
+      if (mongo.current) {
+        mongo.current.close();
+      }
+    });
+  }
+  return mongo.current;
 };
 var mongoApi = src_default({
   url: "http://localhost:1337",
@@ -912,7 +832,4 @@ var mongoApi = src_default({
   }
 });
 http.createServer(mongoApi.resolver).listen(1337);
-export {
-  mongoApi
-};
 //# sourceMappingURL=index.js.map

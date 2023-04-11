@@ -1,17 +1,17 @@
 import jet from "@randajan/jet-core";
 
-import { isWrapped, unwrap } from "../tools";
-import { ModelPack } from "./ModelPack";
 import { ModelProp } from "./ModelProp";
-import { ModelType } from "./ModelType";
 import { ModelEntity } from "./ModelEntity";
+import { assignPack } from "../parsers/types";
+
 import { propTypes } from "../consts";
+import { isWrapped, unwrap } from "../tools";
 
-const { solid, cached } = jet.prop;
+const { solid } = jet.prop;
 
-const createProp = (type, name, attrs)=>new ModelProp(type, name, attrs);
-const createEntity = (sets, name, attrs)=>new ModelEntity(sets, name, attrs);
-const createType = (types, name, props)=>new ModelType(types, name, props, createProp);
+const createProp = (model, msg, name, attrs)=>new ModelProp(model, msg, name, attrs);
+const createEntity = (model, msg, name, attrs)=>new ModelEntity(model, msg, name, attrs);
+const createType = (model, msg, name, props)=>assignPack({}, model, msg, name, props, createProp);
 
 export class Model {
 
@@ -23,9 +23,10 @@ export class Model {
 
         if (!this.namespace) { throw Error(this.msg("namespace missing")); }
 
-        solid(this, "complexTypes", new ModelPack(this, "complexTypes", complexTypes, createType));
-        solid(this, "entityTypes", new ModelPack(this, "entityTypes", entityTypes, createType));
-        solid(this, "entitySets", new ModelPack(this, "entitySets", entitySets, createEntity));
+        const _msg = this.msg.bind(this);
+        solid(this, "complexTypes", assignPack({}, this, _msg, "complexTypes", complexTypes, createType));
+        solid(this, "entityTypes", assignPack({}, this, _msg, "entityTypes", entityTypes, createType));
+        solid(this, "entitySets", assignPack({}, this, _msg, "entitySets", entitySets, createEntity));
         solid(this, "converter", {}, false);
 
         const csr = jet.isRunnable(converter);
@@ -47,5 +48,11 @@ export class Model {
 
     checkNamespace(str) { return isWrapped(str, this.namespace+"."); }
     stripNamespace(str) { return unwrap(str, this.namespace+"."); }
+
+    findEntity(name) {
+        const ent = this.entitySets[name];
+        if (!ent) { throw Error(this.msg("not found!", "entitySets", name)); }
+        return ent;
+    }
 
 }

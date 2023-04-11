@@ -50,7 +50,7 @@ export class MongoAdapter {
         const { primaryKey } = context.entity;
         const body = await context.getBody(true);
 
-        if (!body[primaryKey]) { body[primaryKey] = jet.uid(16); }
+        if (primaryKey !== "_id" && !body[primaryKey]) { body[primaryKey] = jet.uid(16); }
     
         const value = await col.insertOne(body);
     
@@ -61,23 +61,20 @@ export class MongoAdapter {
         const col = await this.getCollection(context);
 
         const { options } = context;
-        const { $select, $sort, $skip, $limit, $count, $inlinecount, $filter } = this.optValidate(options);
+        const { $select, $sort, $skip, $limit, $filter } = this.optValidate(options);
     
         let qr = col.find($filter, { projection: $select || {} });
     
         if ($sort) { qr = qr.sort($sort); }
         if ($skip) { qr = qr.skip($skip); }
         if ($limit) { qr = qr.limit($limit); }
-        if ($count) { return qr.count(); }
+
+        return qr.toArray();
     
-        const value = await qr.toArray();
-    
-        if (!$inlinecount) { return value; }
-    
-        const count = await col.find($filter).count();
-    
-        return { count, value };
-    
+    }
+
+    async count(context) {
+        return this.query(context);
     }
 
 }

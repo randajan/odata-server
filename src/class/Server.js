@@ -92,6 +92,8 @@ export class Server {
 
       const { action, resolver } = context.route;
 
+      if (action === "count") { solid(context.params, "count", true); }
+
       if (!knownActions.includes(action)) { await resolver(req, res); return; }
       if (!_p.adapter[action]) { throw {code:501, msg:"Not Implemented"}; }
       

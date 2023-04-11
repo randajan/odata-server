@@ -1,11 +1,10 @@
-
 import parser from 'odata-parser';
 import querystring from 'querystring';
 import jet from "@randajan/jet-core";
 
 const { solid } = jet.prop;
 
-const _allowedQueryOptions = ['$', '$expand', '$filter', '$format', '$inlinecount', '$select', '$skip', '$top', '$orderby'];
+const _allowedQueryOptions = ['$', '$expand', '$filter', '$format', '$select', '$skip', '$top', '$orderby'];
 
 // odata parser returns ['null', ''] for a filter with "field eq null"
 // we handle the case by fixing the query in case this happens
@@ -94,7 +93,6 @@ const parseNode = ({ type, left, right }, func, args) => {
 const queryTransform = (query) => {
 
   if (query.$top) { query.$limit = query.$top; }
-  if (query.$inlinecount === 'allpages') { query.$count = true; }
 
   query.$sort = parseSort(query.$orderby);
   query.$filter = parseFilter(query.$filter);
@@ -105,7 +103,6 @@ const queryTransform = (query) => {
 
 export const fetchOptions = (url, params, primaryKey) => {
   const query = url.query;
-
   let r = { $filter: {} };
 
   if (url.search) {
@@ -114,9 +111,12 @@ export const fetchOptions = (url, params, primaryKey) => {
       if (query[opt]) { queryValid[opt] = query[opt]; }
     }
 
+    if (Boolean.jet.to(query.$count)) { queryValid["$inlinecount"] = "allpages"; }
     const encodedQS = decodeURIComponent(querystring.stringify(queryValid));
     if (encodedQS) { r = queryTransform(parser.parse(encodedQS)); }
-    if (query.$count) { r.$inlinecount = true; }
+    if (r.$inlinecount) { r.$count = true; }
+    delete r.$inlinecount;
+    
   }
 
   if (params.count) { r.$count = true; }
