@@ -4,11 +4,11 @@ import { convertToResponse } from "../../parsers/types";
 
 export default async (req, res, raw) => {
   const { context } = req;
-  const {options:{ $select, $count }, entity:{ props } } = context;
+  const {options:{ $select, $count }, entity:{ props }, params } = context;
 
   let out = {};
 
-  if (props.hasOwnProperty("id")) {
+  if (params.hasOwnProperty("id")) {
     out['@odata.context'] = context.getScopeMetaEntity($select ? Object.keys($select) : "");
     if (raw.length) { Object.assign(out, convertToResponse(props, raw[0])); }
   } else {

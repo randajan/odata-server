@@ -1,3 +1,4 @@
+import { info } from "@randajan/simple-lib/node";
 import ODataServer from "../../dist/index.js";
 import mongoAdapter from "../../dist/adapter/MongoAdapter.js";
 
@@ -29,7 +30,6 @@ const getMongo = async context=>{
         mongo.current = await MongoClient.connect(mongo.url);
         mongo.current.on("close", _=>{ delete mongo.current; });
         process.on("exit", _=>{
-            console.log("AAA");
             if (mongo.current) { mongo.current.close(); }
         });
     }

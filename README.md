@@ -9,7 +9,7 @@ It supports basic operations you would expect like providing $metadata, filterin
 
 ## Get started
 
-This is how you can create an OData server with node.js http module and nedb.
+This is how you can create an OData server with node.js http module and mongodb.
 ```js
 import ODataServer from "@randajan/odata-server";
 import mongoAdapter from "@randajan/odata-server/mongoAdapter";

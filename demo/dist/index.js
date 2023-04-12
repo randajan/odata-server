@@ -1,3 +1,62 @@
+// <define:__slib_info>
+var define_slib_info_default = { isProd: false, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.4.2", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+
+// node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
+import chalkNative from "chalk";
+var chalkProps = Object.getOwnPropertyNames(Object.getPrototypeOf(chalkNative)).filter((v) => v !== "constructor");
+var Logger = class extends Function {
+  constructor(formater, chalkInit) {
+    super();
+    const chalk = chalkInit || chalkNative;
+    const log2 = (...msgs) => {
+      console.log(chalk(formater(msgs)));
+    };
+    const self = Object.setPrototypeOf(log2.bind(), new.target.prototype);
+    for (const prop of chalkProps) {
+      Object.defineProperty(self, prop, { get: (_) => new Logger(formater, chalk[prop]), enumerable: false });
+    }
+    return self;
+  }
+};
+var logger = (...prefixes) => {
+  const now = (_) => new Date().toLocaleTimeString("cs-CZ");
+  prefixes = prefixes.filter((v) => !!v).join(" ");
+  return new Logger((msgs) => `${prefixes} | ${now()} | ${msgs.join(" ")}`);
+};
+
+// node_modules/@randajan/simple-lib/dist/chunk-DSETVJ5D.js
+var enumerable = true;
+var lockObject = (o) => {
+  if (typeof o !== "object") {
+    return o;
+  }
+  const r = {};
+  for (const i in o) {
+    const descriptor = { enumerable };
+    let val = o[i];
+    if (val instanceof Array) {
+      descriptor.get = (_) => [...val];
+    } else {
+      descriptor.value = lockObject(val);
+    }
+    Object.defineProperty(r, i, descriptor);
+  }
+  return r;
+};
+var info = lockObject(define_slib_info_default);
+
+// node_modules/@randajan/simple-lib/dist/node/index.js
+import { parentPort } from "worker_threads";
+var log = logger(info.name, info.version, info.env);
+parentPort.on("message", (msg) => {
+  if (msg === "shutdown") {
+    process.exit(0);
+  }
+});
+process.on("uncaughtException", (e) => {
+  console.log(e.stack);
+});
+
 // dist/index.js
 import jet12 from "@randajan/jet-core";
 import jet from "@randajan/jet-core";
@@ -204,9 +263,9 @@ __export(query_exports, {
 });
 var query_default = async (req, res, raw) => {
   const { context } = req;
-  const { options: { $select, $count }, entity: { props } } = context;
+  const { options: { $select, $count }, entity: { props }, params } = context;
   let out = {};
-  if (props.hasOwnProperty("id")) {
+  if (params.hasOwnProperty("id")) {
     out["@odata.context"] = context.getScopeMetaEntity($select ? Object.keys($select) : "");
     if (raw.length) {
       Object.assign(out, convertToResponse(props, raw[0]));
@@ -814,7 +873,6 @@ var getMongo = async (context) => {
       delete mongo.current;
     });
     process.on("exit", (_) => {
-      console.log("AAA");
       if (mongo.current) {
         mongo.current.close();
       }
