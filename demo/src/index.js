@@ -10,7 +10,7 @@ const mongo = {
     url:"mongodb://localhost:27017",
 }
 
-const model = async _=>({
+const model = {
     namespace: "main",
     entityTypes: {
         "UserType": {
@@ -23,7 +23,7 @@ const model = async _=>({
             entityType: "main.UserType"
         }
     }
-});
+};
 
 const getMongo = async context=>{
 

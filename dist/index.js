@@ -727,15 +727,15 @@ var Server = class {
       url: (_) => _p.url,
       resolver: (_) => this.resolve.bind(this)
     });
-    cached5(_p, {}, "model", async (_) => new Model(this, jet13.isRunnable(model) ? await model() : model, converter));
-    this.addRoute("delete", "/:entity\\(:id\\)", "remove");
-    this.addRoute("patch", "/:entity\\(:id\\)", "update");
-    this.addRoute("post", "/:entity", "insert");
+    cached5(_p, {}, "model", async (_) => new Model(this, await (jet13.isRunnable(model) ? model() : model), converter));
+    this.addRoute("get", "/", "collections");
+    this.addRoute("get", "/$metadata", "metadata");
     this.addRoute("get", "/:entity/$count", "count");
     this.addRoute("get", "/:entity\\(:id\\)", "query");
     this.addRoute("get", "/:entity", "query");
-    this.addRoute("get", "/$metadata", "metadata");
-    this.addRoute("get", "/", "collections");
+    this.addRoute("delete", "/:entity\\(:id\\)", "remove");
+    this.addRoute("patch", "/:entity\\(:id\\)", "update");
+    this.addRoute("post", "/:entity", "insert");
     if (cors) {
       this.addRoute("options", "/(.*)", () => {
       });

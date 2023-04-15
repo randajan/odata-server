@@ -3,7 +3,7 @@ import slib from "@randajan/simple-lib";
 import ImportGlobPlugin from 'esbuild-plugin-import-glob';
 
 
-slib(false, {
+slib(process.env.NODE_ENV !== "dev", {
     port:4002,
     mode:"node",
     lib:{

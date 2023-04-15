@@ -32,18 +32,19 @@ export class Server {
       resolver:_=>this.resolve.bind(this)
     });
 
-    cached(_p, {}, "model", async _=>new Model(this, jet.isRunnable(model) ? await model() : model, converter));
+    cached(_p, {}, "model", async _=>new Model(this, await (jet.isRunnable(model) ? model() : model), converter));
 
-    this.addRoute("delete", '/:entity\\(:id\\)', "remove");
-    this.addRoute("patch", '/:entity\\(:id\\)', "update");
-    this.addRoute("post", '/:entity', "insert");
+    this.addRoute("get", '/', "collections");
+    this.addRoute("get", '/\$metadata', "metadata");
 
     this.addRoute("get", '/:entity/\$count', "count");
     this.addRoute("get", '/:entity\\(:id\\)', "query");
     this.addRoute("get", '/:entity', "query");
 
-    this.addRoute("get", '/\$metadata', "metadata");
-    this.addRoute("get", '/', "collections");
+    this.addRoute("delete", '/:entity\\(:id\\)', "remove");
+    this.addRoute("patch", '/:entity\\(:id\\)', "update");
+    this.addRoute("post", '/:entity', "insert");
+    
 
     if (cors) { this.addRoute("options", '/(.*)', ()=>{}); }
 

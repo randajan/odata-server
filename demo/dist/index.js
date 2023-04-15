@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: false, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.5.0", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.5.1", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -737,15 +737,15 @@ var Server = class {
       url: (_) => _p.url,
       resolver: (_) => this.resolve.bind(this)
     });
-    cached5(_p, {}, "model", async (_) => new Model(this, jet13.isRunnable(model2) ? await model2() : model2, converter));
-    this.addRoute("delete", "/:entity\\(:id\\)", "remove");
-    this.addRoute("patch", "/:entity\\(:id\\)", "update");
-    this.addRoute("post", "/:entity", "insert");
+    cached5(_p, {}, "model", async (_) => new Model(this, await (jet13.isRunnable(model2) ? model2() : model2), converter));
+    this.addRoute("get", "/", "collections");
+    this.addRoute("get", "/$metadata", "metadata");
     this.addRoute("get", "/:entity/$count", "count");
     this.addRoute("get", "/:entity\\(:id\\)", "query");
     this.addRoute("get", "/:entity", "query");
-    this.addRoute("get", "/$metadata", "metadata");
-    this.addRoute("get", "/", "collections");
+    this.addRoute("delete", "/:entity\\(:id\\)", "remove");
+    this.addRoute("patch", "/:entity\\(:id\\)", "update");
+    this.addRoute("post", "/:entity", "insert");
     if (cors) {
       this.addRoute("options", "/(.*)", () => {
       });
@@ -881,7 +881,7 @@ import http from "http";
 var mongo = {
   url: "mongodb://localhost:27017"
 };
-var model = async (_) => ({
+var model = {
   namespace: "main",
   entityTypes: {
     "UserType": {
@@ -894,7 +894,7 @@ var model = async (_) => ({
       entityType: "main.UserType"
     }
   }
-});
+};
 var getMongo = async (context) => {
   if (!mongo.current) {
     mongo.current = await MongoClient.connect(mongo.url);

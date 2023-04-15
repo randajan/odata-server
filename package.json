@@ -28,7 +28,7 @@
     "xmlbuilder": "15.1.1"
   },
   "devDependencies": {
-    "@randajan/simple-lib": "^2.1.1",
+    "@randajan/simple-lib": "2.1.2",
     "esbuild-plugin-import-glob": "^0.1.1",
     "mongodb": "4.7.0"
   },
