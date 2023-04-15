@@ -13,8 +13,8 @@ export const withBrackets = (val, quote="")=>{
     return str ? "("+quote+str+quote+")" : "";
 }
 
-export const getScope = (collection, ids, quote="")=>collection + withBrackets(ids, quote);
-export const getScopeMeta = (collection, ids, quote="")=>"$metadata#"+getScope(collection, ids, quote);
+export const getScope = (entity, ids, quote="")=>entity + withBrackets(ids, quote);
+export const getScopeMeta = (entity, ids, quote="")=>"$metadata#"+getScope(entity, ids, quote);
 
 
 export const isWrapped = (str, prefix="", suffix="")=>typeof str === "string" ? str.startsWith(prefix) && str.endsWith(suffix) : false;

@@ -34,16 +34,16 @@ export class Server {
 
     cached(_p, {}, "model", async _=>new Model(this, jet.isRunnable(model) ? await model() : model, converter));
 
-    this.addRoute("get", '/', "collections");
+    this.addRoute("delete", '/:entity\\(:id\\)', "remove");
+    this.addRoute("patch", '/:entity\\(:id\\)', "update");
+    this.addRoute("post", '/:entity', "insert");
+
+    this.addRoute("get", '/:entity/\$count', "count");
+    this.addRoute("get", '/:entity\\(:id\\)', "query");
+    this.addRoute("get", '/:entity', "query");
+
     this.addRoute("get", '/\$metadata', "metadata");
-
-    this.addRoute("get", '/:collection/\$count', "count");
-    this.addRoute("get", '/:collection\\(:id\\)', "query");
-    this.addRoute("get", '/:collection', "query");
-
-    this.addRoute("patch", '/:collection\\(:id\\)', "update");
-    this.addRoute("delete", '/:collection\\(:id\\)', "remove");
-    this.addRoute("post", '/:collection', "insert");
+    this.addRoute("get", '/', "collections");
 
     if (cors) { this.addRoute("options", '/(.*)', ()=>{}); }
 

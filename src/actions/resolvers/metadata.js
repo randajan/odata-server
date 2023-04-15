@@ -3,11 +3,11 @@ import jet from "@randajan/jet-core";
 import builder from 'xmlbuilder';
 import { unwrap } from "../../tools";
 
-const mapProps = async (props, collection, filter)=>{
+const mapProps = async (props, entity, filter)=>{
   const r = [];
   for (const name in props) {
     const { key, type, nullable } = props[name];
-    if (!key && collection && !await filter(collection, name)) { continue; }
+    if (!key && entity && !await filter(entity, name)) { continue; }
     r.push({ '@Name': name, '@Type': type, '@Nullable':nullable });
   }
   return r;

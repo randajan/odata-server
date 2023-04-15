@@ -4,7 +4,7 @@ import jet from "@randajan/jet-core";
 
 const { solid } = jet.prop;
 
-const _allowedQueryOptions = ['$', '$expand', '$filter', '$format', '$select', '$skip', '$top', '$orderby'];
+const _allowedQueryOptions = ['$', '$filter', '$expand', '$select', '$orderby', '$top', '$skip', '$count', '$format'];
 
 // odata parser returns ['null', ''] for a filter with "field eq null"
 // we handle the case by fixing the query in case this happens
@@ -90,7 +90,31 @@ const parseNode = ({ type, left, right }, func, args) => {
   return result;
 }
 
-const queryTransform = (query) => {
+const parseQuery = (url) => {
+  let search = url.search;
+  if (!search) { return; }
+
+  let query = {};
+  for (let k in url.query) {
+    if (_allowedQueryOptions.includes(k)) { query[k] = url.query[k]; }
+  }
+
+  //workaround v4 => v3
+  if (Boolean.jet.to(query.$count)) {
+    query["$inlinecount"] = "allpages";
+
+    delete query.$count;
+    search = decodeURIComponent(querystring.stringify(query));
+
+    if (!search) { return; }
+  }
+
+  query = search ? parser.parse(search) : {};
+
+  if (query.$inlinecount != null) {
+    query.$count = true;
+    delete query.$inlinecount;
+  }
 
   if (query.$top) { query.$limit = query.$top; }
 
@@ -101,26 +125,13 @@ const queryTransform = (query) => {
   return query;
 }
 
+
+
 export const _fetchOptions = (url, params, primaryKey) => {
-  const query = url.query;
-  let r = { $filter: {} };
+  const query = parseQuery(url) || { $filter: {} };
 
-  if (url.search) {
-    const queryValid = {}
-    for (const opt of _allowedQueryOptions) {
-      if (query[opt]) { queryValid[opt] = query[opt]; }
-    }
+  if (params.count) { query.$count = true; }
+  if (params.id) { query.$filter[primaryKey] = params.id; }
 
-    if (Boolean.jet.to(query.$count)) { queryValid["$inlinecount"] = "allpages"; }
-    const encodedQS = decodeURIComponent(querystring.stringify(queryValid));
-    if (encodedQS) { r = queryTransform(parser.parse(encodedQS)); }
-    if (r.$inlinecount) { r.$count = true; }
-    delete r.$inlinecount;
-    
-  }
-
-  if (params.count) { r.$count = true; }
-  if (params.id) { r.$filter[primaryKey] = params.id; }
-
-  return r;
+  return query;
 }

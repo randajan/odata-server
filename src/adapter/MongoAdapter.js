@@ -17,7 +17,7 @@ export class MongoAdapter {
     }
 
     async getCollection(context) {
-        return (await this.getDB(context)).collection(context.params.collection);
+        return (await this.getDB(context)).collection(context.params.entity);
     }
 
     async remove(context) {
@@ -68,7 +68,7 @@ export class MongoAdapter {
     }
 
     async count(context) {
-        return this.query(context);
+        return (await this.query(context)).length;
     }
 
 }

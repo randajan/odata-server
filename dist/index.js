@@ -15,8 +15,8 @@ var withBrackets = (val, quote = "") => {
   const str = String.jet.to(val, quote + "," + quote);
   return str ? "(" + quote + str + quote + ")" : "";
 };
-var getScope = (collection, ids, quote = "") => collection + withBrackets(ids, quote);
-var getScopeMeta = (collection, ids, quote = "") => "$metadata#" + getScope(collection, ids, quote);
+var getScope = (entity, ids, quote = "") => entity + withBrackets(ids, quote);
+var getScopeMeta = (entity, ids, quote = "") => "$metadata#" + getScope(entity, ids, quote);
 var isWrapped = (str, prefix = "", suffix = "") => typeof str === "string" ? str.startsWith(prefix) && str.endsWith(suffix) : false;
 var unwrap = (str, prefix = "", suffix = "") => isWrapped(str = String.jet.to(str), prefix, suffix) ? str.slice(prefix.length, str.length - suffix.length) : "";
 
@@ -58,7 +58,7 @@ __export(count_exports, {
 });
 import jet2 from "@randajan/jet-core";
 var count_default = async (context, res) => {
-  const count = Math.max(0, await context.responseBodyRaw);
+  const count = Math.max(0, Number.jet.to(await context.fetchResponseBodyRaw()));
   const { $select } = await context.fetchOptions();
   const out = {
     "@odata.context": context.getScopeMeta($select ? Object.keys($select) : ""),
@@ -96,11 +96,11 @@ __export(metadata_exports, {
 });
 import jet3 from "@randajan/jet-core";
 import builder from "xmlbuilder";
-var mapProps = async (props, collection, filter) => {
+var mapProps = async (props, entity, filter) => {
   const r = [];
   for (const name in props) {
     const { key, type, nullable } = props[name];
-    if (!key && collection && !await filter(collection, name)) {
+    if (!key && entity && !await filter(entity, name)) {
       continue;
     }
     r.push({ "@Name": name, "@Type": type, "@Nullable": nullable });
@@ -276,7 +276,7 @@ import parser from "odata-parser";
 import querystring from "querystring";
 import jet6 from "@randajan/jet-core";
 var { solid: solid2 } = jet6.prop;
-var _allowedQueryOptions = ["$", "$expand", "$filter", "$format", "$select", "$skip", "$top", "$orderby"];
+var _allowedQueryOptions = ["$", "$filter", "$expand", "$select", "$orderby", "$top", "$skip", "$count", "$format"];
 var filterBug = (val) => Array.isArray(val) && val.length === 2 && val[0] === "null" && val[1] === "" ? null : val;
 var parseOp = (op, left, right, func, args) => {
   const r = op || [];
@@ -369,7 +369,30 @@ var parseNode = ({ type, left, right }, func, args) => {
   }
   return result;
 };
-var queryTransform = (query) => {
+var parseQuery = (url) => {
+  let search = url.search;
+  if (!search) {
+    return;
+  }
+  let query = {};
+  for (let k in url.query) {
+    if (_allowedQueryOptions.includes(k)) {
+      query[k] = url.query[k];
+    }
+  }
+  if (Boolean.jet.to(query.$count)) {
+    query["$inlinecount"] = "allpages";
+    delete query.$count;
+    search = decodeURIComponent(querystring.stringify(query));
+    if (!search) {
+      return;
+    }
+  }
+  query = search ? parser.parse(search) : {};
+  if (query.$inlinecount != null) {
+    query.$count = true;
+    delete query.$inlinecount;
+  }
   if (query.$top) {
     query.$limit = query.$top;
   }
@@ -379,34 +402,14 @@ var queryTransform = (query) => {
   return query;
 };
 var _fetchOptions = (url, params, primaryKey) => {
-  const query = url.query;
-  let r = { $filter: {} };
-  if (url.search) {
-    const queryValid = {};
-    for (const opt of _allowedQueryOptions) {
-      if (query[opt]) {
-        queryValid[opt] = query[opt];
-      }
-    }
-    if (Boolean.jet.to(query.$count)) {
-      queryValid["$inlinecount"] = "allpages";
-    }
-    const encodedQS = decodeURIComponent(querystring.stringify(queryValid));
-    if (encodedQS) {
-      r = queryTransform(parser.parse(encodedQS));
-    }
-    if (r.$inlinecount) {
-      r.$count = true;
-    }
-    delete r.$inlinecount;
-  }
+  const query = parseQuery(url) || { $filter: {} };
   if (params.count) {
-    r.$count = true;
+    query.$count = true;
   }
   if (params.id) {
-    r.$filter[primaryKey] = params.id;
+    query.$filter[primaryKey] = params.id;
   }
-  return r;
+  return query;
 };
 
 // src/parsers/inputs.js
@@ -487,7 +490,7 @@ var Context = class {
     solid3.all(this, {
       server,
       model,
-      filter: jet9.isRunnable(filter) ? (collection, property) => filter(this, collection, property) : (_) => true
+      filter: jet9.isRunnable(filter) ? (entity, property) => filter(this, entity, property) : (_) => true
     });
     cached3.all(this, {}, {
       method: (_) => req.method.toLowerCase(),
@@ -497,9 +500,9 @@ var Context = class {
     });
     cached3.all(this, {}, {
       _entity: async (_) => {
-        const { collection } = this.params;
-        if (await this.filter(collection)) {
-          return model.findEntity(collection);
+        const { entity } = this.params;
+        if (await this.filter(entity)) {
+          return model.findEntity(entity);
         }
         throw { code: 403, msg: `Forbidden` };
       },
@@ -515,12 +518,12 @@ var Context = class {
     }, false);
   }
   getScope(ids, quote = "") {
-    const { server: { url }, params: { collection } } = this;
-    return url + "/" + getScope(collection, ids, quote);
+    const { server: { url }, params: { entity } } = this;
+    return url + "/" + getScope(entity, ids, quote);
   }
   getScopeMeta(ids, quote = "") {
-    const { server: { url }, params: { collection } } = this;
-    return url + "/" + getScopeMeta(collection, ids, quote);
+    const { server: { url }, params: { entity } } = this;
+    return url + "/" + getScopeMeta(entity, ids, quote);
   }
   getScopeMetaEntity(ids, quote = "") {
     return this.getScopeMeta(ids, quote) + "/$entity";
@@ -725,14 +728,14 @@ var Server = class {
       resolver: (_) => this.resolve.bind(this)
     });
     cached5(_p, {}, "model", async (_) => new Model(this, jet13.isRunnable(model) ? await model() : model, converter));
-    this.addRoute("get", "/", "collections");
+    this.addRoute("delete", "/:entity\\(:id\\)", "remove");
+    this.addRoute("patch", "/:entity\\(:id\\)", "update");
+    this.addRoute("post", "/:entity", "insert");
+    this.addRoute("get", "/:entity/$count", "count");
+    this.addRoute("get", "/:entity\\(:id\\)", "query");
+    this.addRoute("get", "/:entity", "query");
     this.addRoute("get", "/$metadata", "metadata");
-    this.addRoute("get", "/:collection/$count", "count");
-    this.addRoute("get", "/:collection\\(:id\\)", "query");
-    this.addRoute("get", "/:collection", "query");
-    this.addRoute("patch", "/:collection\\(:id\\)", "update");
-    this.addRoute("delete", "/:collection\\(:id\\)", "remove");
-    this.addRoute("post", "/:collection", "insert");
+    this.addRoute("get", "/", "collections");
     if (cors) {
       this.addRoute("options", "/(.*)", () => {
       });

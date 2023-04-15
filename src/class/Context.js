@@ -17,7 +17,7 @@ export class Context {
         solid.all(this, {
             server,
             model,
-            filter:jet.isRunnable(filter) ? (collection, property)=>filter(this, collection, property) : _=>true
+            filter:jet.isRunnable(filter) ? (entity, property)=>filter(this, entity, property) : _=>true
         })
 
         cached.all(this, {}, {
@@ -29,8 +29,8 @@ export class Context {
 
         cached.all(this, {}, {
             _entity: async _ =>{
-                const { collection } = this.params;
-                if (await this.filter(collection)) { return model.findEntity(collection); }
+                const { entity } = this.params;
+                if (await this.filter(entity)) { return model.findEntity(entity); }
                 throw { code:403, msg:`Forbidden` };
             },
             _options: async _ => _fetchOptions(this.url, this.params, (await this._entity).primaryKey),
@@ -44,13 +44,13 @@ export class Context {
     }
 
     getScope(ids, quote = "") {
-        const { server:{url}, params:{collection} } = this;
-        return url + "/" + getScope(collection, ids, quote);
+        const { server:{url}, params:{entity} } = this;
+        return url + "/" + getScope(entity, ids, quote);
     }
 
     getScopeMeta(ids, quote = "") {
-        const { server:{url}, params:{collection} } = this;
-        return url + "/" + getScopeMeta(collection, ids, quote);
+        const { server:{url}, params:{entity} } = this;
+        return url + "/" + getScopeMeta(entity, ids, quote);
     }
 
     getScopeMetaEntity(ids, quote = "") {

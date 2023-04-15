@@ -2,7 +2,7 @@ import jet from "@randajan/jet-core";
 
 
 export default async (context, res) => {
-  const count = Math.max(0, await context.responseBodyRaw);
+  const count = Math.max(0, Number.jet.to(await context.fetchResponseBodyRaw()));
   const { $select } = await context.fetchOptions();
 
   const out = {

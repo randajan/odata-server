@@ -16,7 +16,7 @@ var MongoAdapter = class {
     return (await this.connect(context)).db(context.model.namespace);
   }
   async getCollection(context) {
-    return (await this.getDB(context)).collection(context.params.collection);
+    return (await this.getDB(context)).collection(context.params.entity);
   }
   async remove(context) {
     const options = await context.fetchOptions();
@@ -59,7 +59,7 @@ var MongoAdapter = class {
     return qr.toArray();
   }
   async count(context) {
-    return this.query(context);
+    return (await this.query(context)).length;
   }
 };
 var MongoAdapter_default = (connect) => new MongoAdapter(connect);
