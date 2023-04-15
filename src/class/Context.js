@@ -1,10 +1,8 @@
-import { parse as parseUrl } from "url";
-
 import jet from "@randajan/jet-core";
 
 import { _fetchOptions } from "../parsers/options";
 import { _fetchBody } from "../parsers/inputs";
-import { getScope, getScopeMeta } from "../tools";
+import { getScope, getScopeMeta, parseUrl, unwrap } from "../tools";
 import { pullBody } from "../parsers/types";
 
 const { solid, cached } = jet.prop;
@@ -18,11 +16,11 @@ export class Context {
             server,
             model,
             filter:jet.isRunnable(filter) ? (entity, property)=>filter(this, entity, property) : _=>true
-        })
+        });
 
         cached.all(this, {}, {
             method: _ => req.method.toLowerCase(),
-            url: _ => parseUrl(req.originalUrl || req.url, true),
+            url: _ => parseUrl(req.originalUrl || req.url, true, server.url),
             route: _ => server.findRoute(this.method, this.url.pathname),
             params: _ => this.route.parseParams(this.url.pathname),
         });

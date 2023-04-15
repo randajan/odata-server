@@ -39,8 +39,9 @@ const getMongo = async context=>{
 }
 
 const mongoApi = ODataServer({
-    url:'http://localhost:1337',
+    url:'http://localhost:1337/odata',
     model,
+    cors:"*",
     adapter:mongoAdapter(getMongo),
     converter:(primitive, value, method)=>{
         //console.log(primitive, value, method);

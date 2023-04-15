@@ -1,6 +1,7 @@
+
 import jet from "@randajan/jet-core";
 
-import { escapeRegExp, vault } from "../tools";
+import { parseUrl, vault } from "../tools";
 
 import { Route } from "./Route";
 
@@ -16,8 +17,8 @@ export class Server {
 
     const [ uid, _p ] = vault.set({
       isInitialized:false,
-      url,
-      cors,
+      cors:String.jet.to(cors),
+      url:String.jet.to(url),
       routes:{},
       adapter,
       filter
@@ -34,6 +35,8 @@ export class Server {
 
     cached(_p, {}, "model", async _=>new Model(this, await (jet.isRunnable(model) ? model() : model), converter));
 
+    if (_p.url) { _p.url = parseUrl(_p.url); }
+
     this.addRoute("get", '/', "collections");
     this.addRoute("get", '/\$metadata', "metadata");
 
@@ -44,9 +47,8 @@ export class Server {
     this.addRoute("delete", '/:entity\\(:id\\)', "remove");
     this.addRoute("patch", '/:entity\\(:id\\)', "update");
     this.addRoute("post", '/:entity', "insert");
-    
 
-    if (cors) { this.addRoute("options", '/(.*)', ()=>{}); }
+    if (_p.cors) { this.addRoute("options", '/(.*)', "cors"); }
 
   }
 
@@ -79,12 +81,11 @@ export class Server {
 
       if (!_p.url) {
         if (!req.protocol) {
-          throw Error(this.text('Unable to determine server url from the request or value provided in the ODataServer constructor.'))
+          throw Error(this.msg('Unable to determine server url from the request or value provided in the ODataServer constructor.'))
         }
 
-        // If mounted in express, trim off the subpath (req.url) giving us just the base path
-        const path = (req.originalUrl || '/').replace(escapeRegExp(req.url), '');
-        _p.url = (req.protocol + '://' + req.get('host') + path);
+        const urlFull = parseUrl(req.protocol + '://' + req.get('host') + (req.originalUrl || req.url));
+        _p.url = parseUrl(urlFull.base.replace(/\/[^\/]*$/g, ""));
       }
 
       res.setHeader('OData-Version', '4.0');

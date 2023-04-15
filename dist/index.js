@@ -8,9 +8,10 @@ var __export = (target, all) => {
 import jet13 from "@randajan/jet-core";
 
 // src/tools.js
+import { parse as urlParser } from "url";
 import jet from "@randajan/jet-core";
+var { solid } = jet.prop;
 var vault = jet.vault("ODataServer");
-var escapeRegExp = (str) => new RegExp(str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&") + "$");
 var withBrackets = (val, quote = "") => {
   const str = String.jet.to(val, quote + "," + quote);
   return str ? "(" + quote + str + quote + ")" : "";
@@ -19,6 +20,16 @@ var getScope = (entity, ids, quote = "") => entity + withBrackets(ids, quote);
 var getScopeMeta = (entity, ids, quote = "") => "$metadata#" + getScope(entity, ids, quote);
 var isWrapped = (str, prefix = "", suffix = "") => typeof str === "string" ? str.startsWith(prefix) && str.endsWith(suffix) : false;
 var unwrap = (str, prefix = "", suffix = "") => isWrapped(str = String.jet.to(str), prefix, suffix) ? str.slice(prefix.length, str.length - suffix.length) : "";
+var parseUrl = (url, parseQueryString = true, baseUrl = void 0) => {
+  url = String.jet.to(url);
+  if (baseUrl) {
+    url = url.replace(new RegExp(`^((${baseUrl.protocol}//)?${baseUrl.host})?${baseUrl.pathname}`), "");
+  }
+  url = urlParser(url, parseQueryString);
+  solid(url, "base", (!url.host ? "" : (!url.protocol ? "" : url.protocol + "//") + url.host) + url.pathname);
+  solid(url, "toString", (_) => url.base, false);
+  return url;
+};
 
 // src/class/Route.js
 import { pathToRegexp } from "path-to-regexp";
@@ -49,6 +60,16 @@ var collections_default = async (context, res) => {
   res.setHeader("Content-Type", "application/json");
   res.stateCode = 200;
   res.end(JSON.stringify(out));
+};
+
+// src/actions/resolvers/cors.js
+var cors_exports = {};
+__export(cors_exports, {
+  default: () => cors_default
+});
+var cors_default = async (context, res) => {
+  res.stateCode = 204;
+  res.end();
 };
 
 // src/actions/resolvers/count.js
@@ -215,9 +236,9 @@ var update_default = async (context, res) => {
 };
 
 // import-glob:./resolvers/**
-var modules = [collections_exports, count_exports, insert_exports, metadata_exports, query_exports, remove_exports, update_exports];
+var modules = [collections_exports, cors_exports, count_exports, insert_exports, metadata_exports, query_exports, remove_exports, update_exports];
 var __default = modules;
-var filenames = ["./resolvers/collections.js", "./resolvers/count.js", "./resolvers/insert.js", "./resolvers/metadata.js", "./resolvers/query.js", "./resolvers/remove.js", "./resolvers/update.js"];
+var filenames = ["./resolvers/collections.js", "./resolvers/cors.js", "./resolvers/count.js", "./resolvers/insert.js", "./resolvers/metadata.js", "./resolvers/query.js", "./resolvers/remove.js", "./resolvers/update.js"];
 
 // src/actions/index.js
 var _prefix = "./resolvers/";
@@ -230,7 +251,7 @@ filenames.forEach((pathname, index) => {
 });
 
 // src/class/Route.js
-var { solid, cached, virtual } = jet5.prop;
+var { solid: solid2, cached, virtual } = jet5.prop;
 var decodeParam = (param) => param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
 var Route = class {
   constructor(method, path, action) {
@@ -240,12 +261,12 @@ var Route = class {
       this.regex;
       return keys;
     }, false);
-    solid.all(this, {
+    solid2.all(this, {
       method,
       path,
       action
     });
-    solid(this, "resolver", actions_default[action]);
+    solid2(this, "resolver", actions_default[action]);
     if (!this.resolver) {
       throw Error(`Route action '${action}' is not implemented. Available actions: '${Object.keys(actions_default).join(", ")}' `);
     }
@@ -261,21 +282,20 @@ var Route = class {
     }
     const params = {};
     for (let i = 0; i < keys.length; i++) {
-      solid(params, keys[i].name, decodeParam(ex[i + 1]));
+      solid2(params, keys[i].name, decodeParam(ex[i + 1]));
     }
     return params;
   }
 };
 
 // src/class/Context.js
-import { parse as parseUrl } from "url";
 import jet9 from "@randajan/jet-core";
 
 // src/parsers/options.js
 import parser from "odata-parser";
 import querystring from "querystring";
 import jet6 from "@randajan/jet-core";
-var { solid: solid2 } = jet6.prop;
+var { solid: solid3 } = jet6.prop;
 var _allowedQueryOptions = ["$", "$filter", "$expand", "$select", "$orderby", "$top", "$skip", "$count", "$format"];
 var filterBug = (val) => Array.isArray(val) && val.length === 2 && val[0] === "null" && val[1] === "" ? null : val;
 var parseOp = (op, left, right, func, args) => {
@@ -483,18 +503,18 @@ var pullBody = async (context, to, vals, method) => {
 };
 
 // src/class/Context.js
-var { solid: solid3, cached: cached3 } = jet9.prop;
+var { solid: solid4, cached: cached3 } = jet9.prop;
 var Context = class {
   constructor(server, req, model, adapter, filter) {
-    solid3(this, "request", req, false);
-    solid3.all(this, {
+    solid4(this, "request", req, false);
+    solid4.all(this, {
       server,
       model,
       filter: jet9.isRunnable(filter) ? (entity, property) => filter(this, entity, property) : (_) => true
     });
     cached3.all(this, {}, {
       method: (_) => req.method.toLowerCase(),
-      url: (_) => parseUrl(req.originalUrl || req.url, true),
+      url: (_) => parseUrl(req.originalUrl || req.url, true, server.url),
       route: (_) => server.findRoute(this.method, this.url.pathname),
       params: (_) => this.route.parseParams(this.url.pathname)
     });
@@ -573,7 +593,7 @@ var propTypes = [
 ];
 
 // src/class/ModelProp.js
-var { solid: solid4 } = jet10.prop;
+var { solid: solid5 } = jet10.prop;
 var convert = (prop, method, vals, subCollection) => {
   const { isCollection, complex, primitive, name, model } = prop;
   if (name.startsWith("@odata")) {
@@ -589,24 +609,24 @@ var convert = (prop, method, vals, subCollection) => {
 };
 var ModelProp = class {
   constructor(model, msg, name, attrs) {
-    solid4(this, "model", model, false);
-    solid4(this, "name", name);
+    solid5(this, "model", model, false);
+    solid5(this, "name", name);
     attrs = Object.jet.to(attrs);
     for (const i in attrs) {
-      solid4(this, i, attrs[i]);
+      solid5(this, i, attrs[i]);
     }
     if (!this.type) {
       throw Error(msg(`missing!`, name, "type"));
     }
     const unCollection = unwrap(this.type, "Collection(", ")");
-    solid4(this, "isCollection", !!unCollection);
+    solid5(this, "isCollection", !!unCollection);
     const complexName = unwrap(unCollection || this.type, model.namespace + ".");
     const complex = model.complexTypes[complexName];
     if (complexName && !complex) {
       throw Error(msg(`definition missing at 'model.complexTypes.${complexName}'`, name, "type"));
     }
-    solid4(this, "primitive", complex ? void 0 : unCollection || this.type);
-    solid4(this, "complex", complex);
+    solid5(this, "primitive", complex ? void 0 : unCollection || this.type);
+    solid5(this, "complex", complex);
     if (!complex && !propTypes.includes(this.primitive)) {
       throw Error(msg(`invalid value '${this.type}' - accepts one of: '${propTypes.join(", ")}'`, name, "type"));
     }
@@ -621,14 +641,14 @@ var ModelProp = class {
 
 // src/class/ModelEntity.js
 import jet11 from "@randajan/jet-core";
-var { solid: solid5, cached: cached4 } = jet11.prop;
+var { solid: solid6, cached: cached4 } = jet11.prop;
 var ModelEntity = class {
   constructor(model, msg, name, attrs) {
-    solid5(this, "model", model, false);
-    solid5(this, "name", name);
+    solid6(this, "model", model, false);
+    solid6(this, "name", name);
     attrs = Object.jet.to(attrs);
     for (const i in attrs) {
-      solid5(this, i, attrs[i]);
+      solid6(this, i, attrs[i]);
     }
     const entityType = this.entityType;
     if (!entityType) {
@@ -642,7 +662,7 @@ var ModelEntity = class {
     if (!props) {
       throw Error(msg(`definition missing at 'model.entityTypes.${typeName}'`, name, "entityType"));
     }
-    solid5(this, "props", props);
+    solid6(this, "props", props);
     for (const propName in props) {
       if (!props[propName].key) {
         continue;
@@ -650,7 +670,7 @@ var ModelEntity = class {
       if (this.primaryKey) {
         throw Error(msg(`primaryKey is allready defined as ${this.primaryKey}`, name, propName));
       }
-      solid5(this, "primaryKey", propName);
+      solid6(this, "primaryKey", propName);
     }
     if (!this.primaryKey) {
       throw Error(msg(`primaryKey is missing`, name));
@@ -659,30 +679,30 @@ var ModelEntity = class {
 };
 
 // src/class/Model.js
-var { solid: solid6 } = jet12.prop;
+var { solid: solid7 } = jet12.prop;
 var createProp = (model, msg, name, attrs) => new ModelProp(model, msg, name, attrs);
 var createEntity = (model, msg, name, attrs) => new ModelEntity(model, msg, name, attrs);
 var createType = (model, msg, name, props) => assignPack({}, model, msg, name, props, createProp);
 var Model = class {
   constructor(server, model, converter) {
     const { namespace, entityTypes, entitySets, complexTypes } = model;
-    solid6(this, "server", server, false);
-    solid6(this, "namespace", String.jet.to(namespace));
+    solid7(this, "server", server, false);
+    solid7(this, "namespace", String.jet.to(namespace));
     if (!this.namespace) {
       throw Error(this.msg("namespace missing"));
     }
     const _msg = this.msg.bind(this);
-    solid6(this, "complexTypes", assignPack({}, this, _msg, "complexTypes", complexTypes, createType));
-    solid6(this, "entityTypes", assignPack({}, this, _msg, "entityTypes", entityTypes, createType));
-    solid6(this, "entitySets", assignPack({}, this, _msg, "entitySets", entitySets, createEntity));
-    solid6(this, "convert", {}, false);
+    solid7(this, "complexTypes", assignPack({}, this, _msg, "complexTypes", complexTypes, createType));
+    solid7(this, "entityTypes", assignPack({}, this, _msg, "entityTypes", entityTypes, createType));
+    solid7(this, "entitySets", assignPack({}, this, _msg, "entitySets", entitySets, createEntity));
+    solid7(this, "convert", {}, false);
     const csr = jet12.isRunnable(converter);
     if (!csr) {
       converter = Object.jet.to(converter);
     }
     propTypes.map((t) => {
       const fce = csr ? (v, method) => converter(t, v, method) : jet12.isRunnable(converter[t]) ? converter[t] : (v) => v;
-      solid6(this.convert, t, fce);
+      solid7(this.convert, t, fce);
     });
   }
   msg(text, ...path) {
@@ -708,19 +728,19 @@ var Model = class {
 };
 
 // src/class/Server.js
-var { solid: solid7, virtual: virtual2, cached: cached5 } = jet13.prop;
+var { solid: solid8, virtual: virtual2, cached: cached5 } = jet13.prop;
 var Server = class {
   constructor(config = {}) {
     const { url, model, cors, adapter, converter, filter } = config;
     const [uid, _p] = vault.set({
       isInitialized: false,
-      url,
-      cors,
+      cors: String.jet.to(cors),
+      url: String.jet.to(url),
       routes: {},
       adapter,
       filter
     });
-    solid7.all(this, {
+    solid8.all(this, {
       uid
     }, false);
     virtual2.all(this, {
@@ -728,6 +748,9 @@ var Server = class {
       resolver: (_) => this.resolve.bind(this)
     });
     cached5(_p, {}, "model", async (_) => new Model(this, await (jet13.isRunnable(model) ? model() : model), converter));
+    if (_p.url) {
+      _p.url = parseUrl(_p.url);
+    }
     this.addRoute("get", "/", "collections");
     this.addRoute("get", "/$metadata", "metadata");
     this.addRoute("get", "/:entity/$count", "count");
@@ -736,9 +759,8 @@ var Server = class {
     this.addRoute("delete", "/:entity\\(:id\\)", "remove");
     this.addRoute("patch", "/:entity\\(:id\\)", "update");
     this.addRoute("post", "/:entity", "insert");
-    if (cors) {
-      this.addRoute("options", "/(.*)", () => {
-      });
+    if (_p.cors) {
+      this.addRoute("options", "/(.*)", "cors");
     }
   }
   msg(text) {
@@ -766,10 +788,10 @@ var Server = class {
       const _p = vault.get(this.uid);
       if (!_p.url) {
         if (!req.protocol) {
-          throw Error(this.text("Unable to determine server url from the request or value provided in the ODataServer constructor."));
+          throw Error(this.msg("Unable to determine server url from the request or value provided in the ODataServer constructor."));
         }
-        const path = (req.originalUrl || "/").replace(escapeRegExp(req.url), "");
-        _p.url = req.protocol + "://" + req.get("host") + path;
+        const urlFull = parseUrl(req.protocol + "://" + req.get("host") + (req.originalUrl || req.url));
+        _p.url = parseUrl(urlFull.base.replace(/\/[^\/]*$/g, ""));
       }
       res.setHeader("OData-Version", "4.0");
       res.setHeader("DataServiceVersion", "4.0");
@@ -779,7 +801,7 @@ var Server = class {
       const context = new Context(this, req, await _p.model, _p.adapter, _p.filter);
       const { action, resolver } = context.route;
       if (action === "count") {
-        solid7(context.params, "count", true);
+        solid8(context.params, "count", true);
       }
       await resolver(context, res);
     } catch (e) {
