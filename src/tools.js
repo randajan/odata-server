@@ -4,7 +4,9 @@ import jet from "@randajan/jet-core";
 export const vault = jet.vault("ODataServer");
 
 
-export const escapeRegExp = str=>str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&');
+export const escapeRegExp = str=>new RegExp(str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&') + '$');
+
+
 
 export const withBrackets = (val, quote="")=>{
     const str = String.jet.to(val, quote+","+quote);

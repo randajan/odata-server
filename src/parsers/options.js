@@ -101,7 +101,7 @@ const queryTransform = (query) => {
   return query;
 }
 
-export const fetchOptions = (url, params, primaryKey) => {
+export const _fetchOptions = (url, params, primaryKey) => {
   const query = url.query;
   let r = { $filter: {} };
 

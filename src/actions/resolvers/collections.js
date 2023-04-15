@@ -1,13 +1,14 @@
-export default async (req, res) => {
-    const { model, url } = req.context.server;
+export default async (context, res) => {
+    const { model, server:{ url } } = context;
 
     const collections = [];
   
-    for (const key in model.entitySets) {
+    for (const name in model.entitySets) {
+      if (!await context.filter(name)) { continue; }
       collections.push({
         kind: 'EntitySet',
-        name: key,
-        url: key,
+        name,
+        url: name,
       });
     }
   

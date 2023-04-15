@@ -18,22 +18,24 @@ export const assignPack = (obj, model, msg, name, childs, validateChild)=>{
     return obj;
 }
 
-const convert = (method, props, vals, isOne)=>{
-    vals = (!isOne && !Array.isArray(vals)) ? [vals] : vals;
-    if (!isOne) { return vals.map(val=>convert(method, props, val, true)); }
-    const r = {};
-
-    if (typeof vals === "object") {
-        for (let i in vals) {
-            const prop = props[i];
-            if (!prop) { continue; }
-            const val = prop[method](vals[i]);
-            if (val !== undefined) { r[i] = val; }
-        }
+//filter:props
+const _pull = async (context, to, vals, method)=>{
+    const { name, props } = await context.fetchEntity();
+    if (typeof vals !== "object") { return to; }
+    for (let i in vals) {
+        const prop = props[i];
+        if (!prop) { continue; }
+        if (!prop.key && !await context.filter(name, i)) { continue; }
+        const val = prop[method](vals[i]);
+        if (val !== undefined) { to[i] = val; }
     }
-
-    return r;
+    return to;
 }
 
-export const convertToAdapter = (props, vals, isOne=true)=>convert("toAdapter", props, vals, isOne);
-export const convertToResponse = (props, vals, isOne=true)=>convert("toResponse", props, vals, isOne);
+export const pullBody = async (context, to, vals, method)=>{
+    const toArray = Array.isArray(to);
+    vals = (toArray === Array.isArray(vals)) ? vals : toArray ? [vals] : vals[0];
+    if (!toArray) { return _pull(context, to, vals, method); }
+    for (const val of vals) { to.push(await _pull(context, {}, val, method)); }
+    return to;
+}

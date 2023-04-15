@@ -15,7 +15,7 @@ const convert = (prop, method, vals, subCollection)=> {
 
     if (complex) { return complex[method](vals); }
 
-    return model.converter[primitive](vals, method);
+    return model.convert[primitive](vals, method);
 }
 
 export class ModelProp {

@@ -10,7 +10,7 @@ const mongo = {
     url:"mongodb://localhost:27017",
 }
 
-const model = {
+const model = async _=>({
     namespace: "main",
     entityTypes: {
         "UserType": {
@@ -23,7 +23,7 @@ const model = {
             entityType: "main.UserType"
         }
     }
-};
+});
 
 const getMongo = async context=>{
 
@@ -43,8 +43,13 @@ const mongoApi = ODataServer({
     model,
     adapter:mongoAdapter(getMongo),
     converter:(primitive, value, method)=>{
-        console.log(primitive, value, method);
+        //console.log(primitive, value, method);
         return value;
+    },
+    filter:(context, collectionName, propertyName)=>{
+        //if (propertyName === "test") { return false; }
+        //return collectionName !== "users";
+        return true;
     }
 });
 

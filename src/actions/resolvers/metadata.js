@@ -1,64 +1,51 @@
+import jet from "@randajan/jet-core";
 
 import builder from 'xmlbuilder';
+import { unwrap } from "../../tools";
 
-export const buildMetadata = (model) => {
-  const entityTypes = []; 
+const mapProps = async (props, collection, filter)=>{
+  const r = [];
+  for (const name in props) {
+    const { key, type, nullable } = props[name];
+    if (!key && collection && !await filter(collection, name)) { continue; }
+    r.push({ '@Name': name, '@Type': type, '@Nullable':nullable });
+  }
+  return r;
+}
 
-  for (const typeKey in model.entityTypes) {
-    const entityType = {
-      '@Name': typeKey,
-      Property: []
-    }
+export default async (context, res) => {
 
-    for (const propKey in model.entityTypes[typeKey]) {
-      const property = model.entityTypes[typeKey][propKey]
-      const finalObject = { '@Name': propKey, '@Type': property.type }
-      if (Object.prototype.hasOwnProperty.call(property, 'nullable')) {
-        finalObject['@Nullable'] = property.nullable
-      }
-      entityType.Property.push(finalObject)
+  const { model } = context;
+  const namespace = model.namespace;
 
-      if (property.key) {
-        entityType.Key = {
-          PropertyRef: {
-            '@Name': propKey
-          }
-        }
-      }
-    }
+  const entityTypes = [];
+  const entitySets = [];
+  const complexTypes = [];
 
-    entityTypes.push(entityType)
+  for (const name in model.entitySets) {
+    if (!await context.filter(name)) { continue; }
+
+    const { entityType, primaryKey, props } = model.entitySets[name];
+
+    entityTypes.push({
+      '@Name': unwrap(entityType, namespace+"."),
+      Property:await mapProps(props, name, context.filter),
+      Key:primaryKey ? { PropertyRef: { '@Name': primaryKey } } : undefined
+    });
+
+    entitySets.push({
+      '@EntityType': entityType,
+      '@Name': name
+    });
+
   }
 
-  const complexTypes = []
-  for (const typeKey in model.complexTypes) {
-    const complexType = {
-      '@Name': typeKey,
-      Property: []
-    }
-
-    for (const propKey in model.complexTypes[typeKey]) {
-      const property = model.complexTypes[typeKey][propKey]
-
-      complexType.Property.push({ '@Name': propKey, '@Type': property.type })
-    }
-
-    complexTypes.push(complexType)
+  for (const name in model.complexTypes) {
+    const { props } = model.complexTypes[name];
+    complexTypes.push({ '@Name': name, Property:await mapProps(props)});
   }
 
-  const container = {
-    '@Name': 'Context',
-    EntitySet: []
-  }
-
-  for (const setKey in model.entitySets) {
-    container.EntitySet.push({
-      '@EntityType': model.entitySets[setKey].entityType,
-      '@Name': setKey
-    })
-  }
-
-  const returnObject = {
+  const metadata = {
     'edmx:Edmx': {
       '@xmlns:edmx': 'http://docs.oasis-open.org/odata/ns/edmx',
       '@Version': '4.0',
@@ -67,21 +54,17 @@ export const buildMetadata = (model) => {
           '@xmlns': 'http://docs.oasis-open.org/odata/ns/edm',
           '@Namespace': model.namespace,
           EntityType: entityTypes,
-          EntityContainer: container
+          EntityContainer: {
+            '@Name': 'Context',
+            EntitySet: entitySets
+          },
+          ComplexType:complexTypes.length ? complexTypes : undefined
         }
       }
     }
   }
 
-  if (complexTypes.length) {
-    returnObject['edmx:Edmx']['edmx:DataServices'].Schema.ComplexType = complexTypes
-  }
-
-  return builder.create(returnObject).end({ pretty: true })
-}
-
-export default async (req, res) => {
-  const out = buildMetadata(req.context.server.model);
+  const out = builder.create(metadata).end({ pretty: true });
 
   res.setHeader('Content-Type', 'application/xml');
   res.stateCode = 200;

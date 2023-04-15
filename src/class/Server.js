@@ -6,24 +6,25 @@ import { Route } from "./Route";
 
 import { Context } from "./Context";
 import { Model } from "./Model";
-import { knownActions } from "../consts";
 
 const { solid, virtual, cached } = jet.prop;
 
 export class Server {
   constructor(config={}) {
 
-    const { url, model, cors, adapter, converter } = config;
+    const { url, model, cors, adapter, converter, filter } = config;
 
     const [ uid, _p ] = vault.set({
+      isInitialized:false,
       url,
       cors,
       routes:{},
-      adapter
+      adapter,
+      filter
     });
 
     solid.all(this, {
-      uid
+      uid,
     }, false);
 
     virtual.all(this, {
@@ -31,7 +32,7 @@ export class Server {
       resolver:_=>this.resolve.bind(this)
     });
 
-    cached(this, _p, "model", _=>new Model(this, model, converter));
+    cached(_p, {}, "model", async _=>new Model(this, jet.isRunnable(model) ? await model() : model, converter));
 
     this.addRoute("get", '/', "collections");
     this.addRoute("get", '/\$metadata', "metadata");
@@ -75,28 +76,26 @@ export class Server {
     try {
       const _p = vault.get(this.uid);
 
-      if (!_p.url && !req.protocol) {
-        throw Error(this.text('Unable to determine server url from the request or value provided in the ODataServer constructor.'))
-      }
-    
-      // If mounted in express, trim off the subpath (req.url) giving us just the base path
-      const path = (req.originalUrl || '/').replace(new RegExp(escapeRegExp(req.url) + '$'), '')
-      if (!_p.url) { _p.url = (req.protocol + '://' + req.get('host') + path); };
+      if (!_p.url) {
+        if (!req.protocol) {
+          throw Error(this.text('Unable to determine server url from the request or value provided in the ODataServer constructor.'))
+        }
 
-      const context = new Context(this, req);
+        // If mounted in express, trim off the subpath (req.url) giving us just the base path
+        const path = (req.originalUrl || '/').replace(escapeRegExp(req.url), '');
+        _p.url = (req.protocol + '://' + req.get('host') + path);
+      }
 
       res.setHeader('OData-Version', '4.0');
       res.setHeader('DataServiceVersion', '4.0');
       if (_p.cors) { res.setHeader('Access-Control-Allow-Origin', _p.cors); }
 
+      const context = new Context(this, req, await _p.model, _p.adapter, _p.filter);
       const { action, resolver } = context.route;
 
       if (action === "count") { solid(context.params, "count", true); }
 
-      if (!knownActions.includes(action)) { await resolver(req, res); return; }
-      if (!_p.adapter[action]) { throw {code:501, msg:"Not Implemented"}; }
-      
-      await resolver(req, res, await _p.adapter[action](context));
+      await resolver(context, res);
 
     } catch(e) {
 

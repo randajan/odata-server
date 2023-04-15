@@ -1,11 +1,9 @@
 import jet from "@randajan/jet-core";
 
 
-export default async (req, res, raw) => {
-  const { context } = req;
-  const { options:{ $select } } = context;
-
-  const count = Math.max(0, Number.jet.to(raw));
+export default async (context, res) => {
+  const count = Math.max(0, await context.responseBodyRaw);
+  const { $select } = await context.fetchOptions();
 
   const out = {
     '@odata.context':context.getScopeMeta($select ? Object.keys($select) : ""),

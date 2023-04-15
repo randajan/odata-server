@@ -1,6 +1,6 @@
 import jet from "@randajan/jet-core";
 
-export const fetchBody = async req => {
+export const _fetchBody = async req => {
     if (req.body) { return req.body; }
 
     return new Promise((res, rej) => {

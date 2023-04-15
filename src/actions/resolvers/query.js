@@ -1,21 +1,22 @@
 import jet from "@randajan/jet-core";
-import { convertToResponse } from "../../parsers/types";
 
 
-export default async (req, res, raw) => {
-  const { context } = req;
-  const {options:{ $select, $count }, entity:{ props }, params } = context;
+export default async (context, res) => {
+  const { params } = context;
+  const { primaryKey } = await context.fetchEntity();
+  const { $select, $count } = await context.fetchOptions();
 
   let out = {};
 
   if (params.hasOwnProperty("id")) {
     out['@odata.context'] = context.getScopeMetaEntity($select ? Object.keys($select) : "");
-    if (raw.length) { Object.assign(out, convertToResponse(props, raw[0])); }
+    await context.pullResponseBody(out);
+    if (!out.hasOwnProperty(primaryKey)) { throw {code:404, msg:"Not found"}; }
   } else {
     out['@odata.context'] = context.getScopeMeta($select ? Object.keys($select) : "");
-    raw = convertToResponse(props, raw, false);
-    if ($count) { out['@odata.count'] = raw.length; }
-    out.value = raw;
+    const value = await context.pullResponseBody([]);
+    if ($count) { out['@odata.count'] = value.length; }
+    out.value = value;
   }
 
   res.setHeader('Content-Type', 'application/json;odata.metadata=minimal');

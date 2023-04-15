@@ -51,10 +51,14 @@ const config = {
             }
         }
     },
-    adapter:mongoAdapter(getMongo),                             //Object.keys(adapter) == [ "query", "count", "insert", "update", "remove" ];
-    converter:(primitive, value, method)=>{                     //custom 'value to type' convertor, method is enum = [ "toAdapter", "toResponse" ];
+    adapter:mongoAdapter(getMongo),
+    converter:(primitive, value, method)=>{
         console.log(primitive, value, method);
         return value;
+    },
+    filter:(context, collectionName, propertyName)=>{
+        console.log(collectionName, propertyName);
+        return true;
     }
 }
 
@@ -123,6 +127,10 @@ There is two possible ways to create custom converter:
 Argument `method` represent the direction of conversion and it could be one of:
 1. "toAdapter": it represent the value coming from the request
 2. "toResponse": it represent value coming from the adapter
+
+### config.filter
+Provide function here for dynamic filtering model (entities and their props). Everytime server tries to access model it will call this function.
+Return false means that there is no access. This can't be used to filter records based on their value.
 
 ## Limitations
 - no entity links

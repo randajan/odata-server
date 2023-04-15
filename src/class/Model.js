@@ -16,7 +16,7 @@ const createType = (model, msg, name, props)=>assignPack({}, model, msg, name, p
 export class Model {
 
     constructor(server, model, converter) {
-        const { namespace, entityTypes, entitySets, complexTypes } = Object.jet.to(model);
+        const { namespace, entityTypes, entitySets, complexTypes } = model;
 
         solid(this, "server", server, false);
         solid(this, "namespace", String.jet.to(namespace));
@@ -27,14 +27,14 @@ export class Model {
         solid(this, "complexTypes", assignPack({}, this, _msg, "complexTypes", complexTypes, createType));
         solid(this, "entityTypes", assignPack({}, this, _msg, "entityTypes", entityTypes, createType));
         solid(this, "entitySets", assignPack({}, this, _msg, "entitySets", entitySets, createEntity));
-        solid(this, "converter", {}, false);
+        solid(this, "convert", {}, false);
 
         const csr = jet.isRunnable(converter);
         if (!csr) { converter = Object.jet.to(converter); }
 
         propTypes.map(t=>{
             const fce = csr ? (v, method)=>converter(t, v, method) : jet.isRunnable(converter[t]) ? converter[t] : v=>v;
-            solid(this.converter, t, fce);
+            solid(this.convert, t, fce);
         });
         
         

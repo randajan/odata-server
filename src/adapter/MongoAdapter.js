@@ -13,7 +13,7 @@ export class MongoAdapter {
     optValidate(o) { return jet.map(o, this.optValidator.bind(this), true); }
 
     async getDB(context) {
-        return (await this.connect(context)).db(context.server.model.namespace);
+        return (await this.connect(context)).db(context.model.namespace);
     }
 
     async getCollection(context) {
@@ -21,48 +21,42 @@ export class MongoAdapter {
     }
 
     async remove(context) {
-        const col = await this.getCollection(context);
-
-        const { options } = context;
+        const options = await context.fetchOptions();
         const { $filter } = this.optValidate({ $filter:options.$filter });
-    
+
+        const col = await this.getCollection(context);
         const res = await col.deleteOne($filter);
     
-        if (res.deletedCount < 1) { throw {code:410, msg:"Gone"}; }
         return res.deletedCount;
     }
     
     async update(context) {
-        const col = await this.getCollection(context);
-
-        const { options, getBody } = context;
+        const options = await context.fetchOptions();
         const { $filter } = this.optValidate({ $filter:options.$filter });
 
-        const res = await col.updateOne($filter, {$set:await getBody(true)});
+        const col = await this.getCollection(context);
+        const res = await col.updateOne($filter, {$set:await context.pullRequestBody({})});
     
-        if (res.matchedCount < 1) { throw {code:410, msg:"Gone"}; }
         return res.matchedCount;
     }
     
     async insert(context) {
-        const col = await this.getCollection(context);
-
-        const { primaryKey } = context.entity;
-        const body = await context.getBody(true);
+        const { primaryKey } = await context.fetchEntity();
+        const body = await context.pullRequestBody({});
 
         if (primaryKey !== "_id" && !body[primaryKey]) { body[primaryKey] = jet.uid(16); }
     
+        const col = await this.getCollection(context);
         const value = await col.insertOne(body);
     
         return col.findOne({ _id: value.insertedId });
     }
     
     async query(context) {
-        const col = await this.getCollection(context);
-
-        const { options } = context;
+        const options = await context.fetchOptions();
         const { $select, $sort, $skip, $limit, $filter } = this.optValidate(options);
-    
+
+        const col = await this.getCollection(context);
         let qr = col.find($filter, { projection: $select || {} });
     
         if ($sort) { qr = qr.sort($sort); }
