@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.7.0", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.7.1", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -495,7 +495,7 @@ var _fetchBody = async (req) => {
     });
     req.on("end", (_) => {
       try {
-        res(JSON.parse(body));
+        res(body ? JSON.parse(body) : void 0);
       } catch (e) {
         rej({ code: 400, msg: e.message });
       }
@@ -965,6 +965,7 @@ var mongoApi = src_default({
   },
   extender: async (context, test) => {
     context.test = test;
+    console.log(await context.fetchRequestBodyRaw());
   }
 });
 http.createServer(mongoApi.serve("http://localhost:1337/odata", "tsest")).listen(1337);

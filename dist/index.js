@@ -468,7 +468,7 @@ var _fetchBody = async (req) => {
     });
     req.on("end", (_) => {
       try {
-        res(JSON.parse(body));
+        res(body ? JSON.parse(body) : void 0);
       } catch (e) {
         rej({ code: 400, msg: e.message });
       }
