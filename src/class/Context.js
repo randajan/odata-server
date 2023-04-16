@@ -9,9 +9,8 @@ const { solid, cached } = jet.prop;
 
 
 export class Context {
-    constructor(int, req, model, options={}, extendArgs=[]) {
+    constructor(int, req, model, adapter, filter) {
         const { server } = int;
-        const { adapter, filter, extender, } = options;
 
         solid.all(this, {
             "request":req,
@@ -50,8 +49,6 @@ export class Context {
                 throw { code:501, msg:`Action '${action}' is not implemented` };
             }
         }, false);
-
-        if (jet.isRunnable(extender)) { extender(this, ...extendArgs); }
     }
 
     getScope(ids, quote = "") {

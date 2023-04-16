@@ -46,16 +46,16 @@ const mongoApi = ODataServer({
         //console.log(primitive, value, method);
         return value;
     },
-    filter:(context, collectionName, propertyName)=>{
+    filter:async (context, collectionName, propertyName)=>{
         if (context.test === "test") { return false; }
         //if (propertyName === "test") { return false; }
         //return collectionName !== "users";
         return true;
     },
-    extender:(context, test)=>{
+    extender: async (context, test)=>{
         context.test = test;
     }
 });
 
 
-http.createServer(mongoApi.serve('http://localhost:1337/odata', "tests")).listen(1337);
+http.createServer(mongoApi.serve('http://localhost:1337/odata', "tsest")).listen(1337);

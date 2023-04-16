@@ -526,9 +526,8 @@ var pullBody = async (context, to, vals, method) => {
 // src/class/Context.js
 var { solid: solid3, cached: cached3 } = jet9.prop;
 var Context = class {
-  constructor(int, req, model, options = {}, extendArgs = []) {
+  constructor(int, req, model, adapter, filter) {
     const { server } = int;
-    const { adapter, filter, extender } = options;
     solid3.all(this, {
       "request": req,
       filter: jet9.isRunnable(filter) ? (entity, property) => filter(this, entity, property) : (_) => true
@@ -569,9 +568,6 @@ var Context = class {
         throw { code: 501, msg: `Action '${action}' is not implemented` };
       }
     }, false);
-    if (jet9.isRunnable(extender)) {
-      extender(this, ...extendArgs);
-    }
   }
   getScope(ids, quote = "") {
     const { int: { url }, params: { entity } } = this;
@@ -748,12 +744,17 @@ import jet13 from "@randajan/jet-core";
 var { solid: solid7 } = jet13.prop;
 var Interface = class {
   constructor(server, url, options = {}, extendArgs = []) {
+    const { adapter, filter, extender } = options;
     solid7.all(this, {
       server,
-      fetchContext: async (req, url2) => {
-        return new Context(this, req, await server.fetchModel(), options, extendArgs);
-      },
-      url: parseUrl(url, false)
+      url: parseUrl(url, false),
+      fetchContext: async (req) => {
+        const context = new Context(this, req, await server.fetchModel(), adapter, filter);
+        if (jet13.isRunnable(extender)) {
+          await extender(context, ...extendArgs);
+        }
+        return context;
+      }
     }, false);
   }
   msg(text) {

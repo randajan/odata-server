@@ -9,14 +9,18 @@ const { solid } = jet.prop;
 export class Interface {
 
     constructor(server, url, options={}, extendArgs=[]) {
+        const { adapter, filter, extender } = options;
 
         solid.all(this, {
             server,
-            fetchContext:async (req, url) => {
-                return new Context(this, req, await server.fetchModel(), options, extendArgs);
+            url:parseUrl(url, false),
+            fetchContext:async req=>{
+                const context = new Context(this, req, await server.fetchModel(), adapter, filter);
+                if (jet.isRunnable(extender)) { await extender(context, ...extendArgs); }
+                return context;
             },
-            url:parseUrl(url, false)
         }, false);
+
     }
 
     msg(text) {
