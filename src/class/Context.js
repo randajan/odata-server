@@ -21,7 +21,7 @@ export class Context {
 
         cached.all(this, {}, {
             method: _ => req.method.toLowerCase(),
-            url: _ => parseUrl(req.originalUrl || req.url, true, server.url),
+            url: _ => parseUrl(req.originalUrl || req.url, true),
             route: _ => server.findRoute(this.method, this.url.pathname),
             params: _ => this.route.parseParams(this.url.pathname)
         });

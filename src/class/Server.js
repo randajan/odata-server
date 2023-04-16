@@ -1,7 +1,7 @@
 
 import jet from "@randajan/jet-core";
 
-import { parseUrl, vault } from "../tools";
+import { parseUrl, trimUrl, vault } from "../tools";
 
 import { Route } from "./Route";
 
@@ -54,7 +54,7 @@ export class Server {
   addRoute(method, path, action) {
     const { routes } = vault.get(this.uid);
     const list = routes[method] || (routes[method] = []);
-    const route = new Route(method, path, action);
+    const route = new Route(method, trimUrl(this.url.pathname)+path, action);
     list.push(route);
     return route;
   }

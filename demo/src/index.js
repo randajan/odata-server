@@ -48,7 +48,6 @@ const mongoApi = ODataServer({
         return value;
     },
     filter:(context, collectionName, propertyName)=>{
-        console.log(context);
         if (context.custom === "silent") { return false; }
         //if (propertyName === "test") { return false; }
         //return collectionName !== "users";

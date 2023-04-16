@@ -20,13 +20,10 @@ var getScope = (entity, ids, quote = "") => entity + withBrackets(ids, quote);
 var getScopeMeta = (entity, ids, quote = "") => "$metadata#" + getScope(entity, ids, quote);
 var isWrapped = (str, prefix = "", suffix = "") => typeof str === "string" ? str.startsWith(prefix) && str.endsWith(suffix) : false;
 var unwrap = (str, prefix = "", suffix = "") => isWrapped(str = String.jet.to(str), prefix, suffix) ? str.slice(prefix.length, str.length - suffix.length) : "";
-var parseUrl = (url, parseQueryString = true, baseUrl = void 0) => {
-  url = String.jet.to(url);
-  if (baseUrl) {
-    url = url.replace(new RegExp(`^((${baseUrl.protocol}//)?${baseUrl.host})?${baseUrl.pathname}`), "");
-  }
-  url = urlParser(url || "/", parseQueryString);
-  solid(url, "base", (!url.host ? "" : (!url.protocol ? "" : url.protocol + "//") + url.host) + url.pathname);
+var trimUrl = (pathname) => pathname.endsWith("/") ? pathname.slice(0, pathname.length - 1) : pathname;
+var parseUrl = (url, parseQueryString = true) => {
+  url = urlParser(String.jet.to(url) || "/", parseQueryString);
+  solid(url, "base", (!url.host ? "" : (!url.protocol ? "" : url.protocol + "//") + url.host) + trimUrl(url.pathname));
   solid(url, "toString", (_) => url.base, false);
   return url;
 };
@@ -516,7 +513,7 @@ var Context = class {
     });
     cached3.all(this, {}, {
       method: (_) => req.method.toLowerCase(),
-      url: (_) => parseUrl(req.originalUrl || req.url, true, server.url),
+      url: (_) => parseUrl(req.originalUrl || req.url, true),
       route: (_) => server.findRoute(this.method, this.url.pathname),
       params: (_) => this.route.parseParams(this.url.pathname)
     });
@@ -770,7 +767,7 @@ var Server = class {
   addRoute(method, path, action) {
     const { routes } = vault.get(this.uid);
     const list = routes[method] || (routes[method] = []);
-    const route = new Route(method, path, action);
+    const route = new Route(method, trimUrl(this.url.pathname) + path, action);
     list.push(route);
     return route;
   }
