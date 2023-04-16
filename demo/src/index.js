@@ -39,7 +39,6 @@ const getMongo = async context=>{
 }
 
 const mongoApi = ODataServer({
-    url:'http://localhost:1337/odata',
     model,
     cors:"*",
     adapter:mongoAdapter(getMongo),
@@ -48,15 +47,15 @@ const mongoApi = ODataServer({
         return value;
     },
     filter:(context, collectionName, propertyName)=>{
-        if (context.custom === "silent") { return false; }
+        if (context.test === "test") { return false; }
         //if (propertyName === "test") { return false; }
         //return collectionName !== "users";
         return true;
     },
-    extender:(context)=>{
-        context.test = "AAAAA";
+    extender:(context, test)=>{
+        context.test = test;
     }
 });
 
 
-http.createServer(mongoApi.createResolver("silents")).listen(1337);
+http.createServer(mongoApi.serve('http://localhost:1337/odata', "tests")).listen(1337);

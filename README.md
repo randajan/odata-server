@@ -52,22 +52,22 @@ const config = {
         }
     },
     adapter:mongoAdapter(getMongo),
-    extender:context=>{
-        context.test = "This will be present in the context"
+    extender:(context, customServeArgument)=>{
+        context.customProperty = customServeArgument;
     }
     converter:(primitive, value, method)=>{
         console.log(primitive, value, method);
         return value;
     },
     filter:(context, collectionName, propertyName)=>{
-        console.log(collectionName, propertyName);
+        console.log(context.customProperty, collectionName, propertyName);
         return true;
     },
 }
 
 const server = ODataServer(config);
 
-http.createServer(server.createResolver("custom")).listen(1337);
+http.createServer(server.serve("http://localhost:1337", "This will be present at 'context.customProperty'")).listen(1337);
 
 ```
 
@@ -79,21 +79,10 @@ GET [http://localhost:1337/users?$orderby=test desc]()<br/>
 GET [http://localhost:1337/users/$count]()<br/>
 POST, PATCH, DELETE
 
-## express.js
-It works well also with the express.js.
-You even don't need to provide url in the `config` because it is also could be taken from the express.js request.
-
-```js
-app.use("/odata", server.createResolver("custom");
-```
-
-## server.createResolver(custom)
-This is factory function and will return resolver binded to the server. The first argument will be present at "context.custom"
+## server.serve(url, ...extendArgs)
+This is factory function and will return resolver binded to the server. The first argument represent base url. Next arguments will be passed to the function `extender`.
 
 ## config property
-
-### config.url
-root url, if it's not provided it will try to get it from the request once `server.resolve(req, res)` is called
 
 ### config.adapter
 There is currently single adapter implemented. 
@@ -140,7 +129,8 @@ Provide function here for dynamic filtering model (entities and their props). Ev
 Return false means that there is no access. This can't be used to filter records based on their value.
 
 ### config.extender
-This function will be called everytime context is created so you can add your own properties and pass them to the adapter
+This function will be called everytime context is created so you can add your own properties and pass them to the adapter.
+First argument will be context, and next arguments will be anything passed to the odataServer.serve function
 
 ## Limitations
 - no entity links

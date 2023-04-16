@@ -1,10 +1,10 @@
 export default async (context, res) => {
-    const { model, server:{ url } } = context;
+    const { model, int:{ url } } = context;
 
     const collections = [];
   
     for (const name in model.entitySets) {
-      if (!await context.filter(name)) { continue; }
+      if (!(await context.filter(name))) { continue; }
       collections.push({
         kind: 'EntitySet',
         name,

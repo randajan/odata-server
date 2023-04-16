@@ -23,4 +23,6 @@ export const knownActions = [
     "insert",
     "update",
     "remove"
-]
+];
+
+export const allowedQueryOptions = ['$', '$filter', '$expand', '$select', '$orderby', '$top', '$skip', '$count', '$format'];

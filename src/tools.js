@@ -21,9 +21,11 @@ export const unwrap = (str, prefix="", suffix="")=>isWrapped(str = String.jet.to
 
 export const trimUrl = pathname=>pathname.endsWith("/") ? pathname.slice(0, pathname.length-1) : pathname;
 
-export const parseUrl = (url, parseQueryString=true)=>{
+export const parseUrl = (url, parseQueryString=false)=>{
     url = urlParser(String.jet.to(url) || "/", parseQueryString);
     solid(url, "base", ((!url.host ? "" : (!url.protocol ? "" : url.protocol+"//")+url.host) + trimUrl(url.pathname)));
     solid(url, "toString", _=>url.base, false);
     return url;
 }
+
+export const decodeParam = param=>param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");

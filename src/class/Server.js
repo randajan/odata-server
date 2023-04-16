@@ -1,36 +1,39 @@
 
 import jet from "@randajan/jet-core";
 
-import { parseUrl, trimUrl, vault } from "../tools";
+import { parseUrl, trimUrl, unwrap, vault } from "../tools";
 
 import { Route } from "./Route";
 
 import { Context } from "./Context";
 import { Model } from "./Model";
+import { Interface } from "./Interface";
 
-const { solid, virtual, cached } = jet.prop;
+const { solid } = jet.prop;
 
 export class Server {
-  constructor(config={}) {
+  constructor(options={}) {
 
-    const { url, model, cors, adapter, converter, filter, extender } = config;
+    const { model, cors, converter } = options;
 
     const [ uid, _p ] = vault.set({
-      isInitialized:false,
-      cors:String.jet.to(cors),
-      url:String.jet.to(url),
       routes:{},
-      adapter,
-      filter,
-      extender
+      //model
     });
 
     solid(this, "uid", uid, false);
-    virtual(this, "url", _=>_p.url);
+    solid(this, "cors", String.jet.to(cors));
 
-    cached(_p, {}, "model", async _=>new Model(this, await (jet.isRunnable(model) ? model() : model), converter));
-
-    if (_p.url) { _p.url = parseUrl(_p.url); }
+    solid.all(this, {
+      fetchModel:async _=>{
+        if (_p.model) { return _p.model; }
+        return _p.model = new Model(this, await (jet.isRunnable(model) ? model() : model), converter);
+      },
+      serve:(url, ...extendArgs)=>{
+        const int = new Interface(this, url, options, extendArgs);
+        return int.resolve.bind(int);
+      }
+    }, false);
 
     this.addRoute("get", '/', "collections");
     this.addRoute("get", '/\$metadata', "metadata");
@@ -43,18 +46,18 @@ export class Server {
     this.addRoute("patch", '/:entity\\(:id\\)', "update");
     this.addRoute("post", '/:entity', "insert");
 
-    if (_p.cors) { this.addRoute("options", '/(.*)', "cors"); }
+    if (this.cors) { this.addRoute("options", '/(.*)', "cors"); }
 
   }
 
   msg(text) {
-    return "ODataServer: " + text;
+    return "OData server " + text;
   }
 
   addRoute(method, path, action) {
     const { routes } = vault.get(this.uid);
     const list = routes[method] || (routes[method] = []);
-    const route = new Route(method, trimUrl(this.url.pathname)+path, action);
+    const route = new Route(this, method, path, action);
     list.push(route);
     return route;
   }
@@ -68,52 +71,6 @@ export class Server {
     }
 
     throw { code: 404, msg: "Not found" };
-  }
-
-  async resolve(req, res, customContext) {
-    try {
-      const _p = vault.get(this.uid);
-
-      if (!_p.url) {
-        if (!req.protocol) {
-          throw Error(this.msg('Unable to determine server url from the request or value provided in the ODataServer constructor.'))
-        }
-
-        const urlFull = parseUrl(req.protocol + '://' + req.get('host') + (req.originalUrl || req.url));
-        _p.url = parseUrl(urlFull.base.replace(/\/[^\/]*$/g, ""));
-      }
-
-      res.setHeader('OData-Version', '4.0');
-      res.setHeader('DataServiceVersion', '4.0');
-      if (_p.cors) { res.setHeader('Access-Control-Allow-Origin', _p.cors); }
-
-      const context = new Context(this, req, await _p.model, _p.adapter, _p.filter, _p.extender, customContext);
-      const { resolver } = context.route;
-
-      await resolver(context, res);
-
-    } catch(e) {
-
-        const error = {
-          code:e?.code || 500,
-          message: e?.msg || e?.message || "Unknown error",
-          stack: e?.stack,
-          method: req.method,
-          target: req.url,
-          details: []
-        }
-
-        res.statusCode = error.code;
-        res.setHeader('Content-Type', 'application/json');
-
-        res.end(JSON.stringify({ error }))
-
-    }
-
-  }
-
-  createResolver(customContext) {
-    return (req, res)=>this.resolve(req, res, customContext);
   }
 
 }

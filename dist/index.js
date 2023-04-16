@@ -5,7 +5,7 @@ var __export = (target, all) => {
 };
 
 // src/class/Server.js
-import jet13 from "@randajan/jet-core";
+import jet14 from "@randajan/jet-core";
 
 // src/tools.js
 import { parse as urlParser } from "url";
@@ -21,12 +21,13 @@ var getScopeMeta = (entity, ids, quote = "") => "$metadata#" + getScope(entity, 
 var isWrapped = (str, prefix = "", suffix = "") => typeof str === "string" ? str.startsWith(prefix) && str.endsWith(suffix) : false;
 var unwrap = (str, prefix = "", suffix = "") => isWrapped(str = String.jet.to(str), prefix, suffix) ? str.slice(prefix.length, str.length - suffix.length) : "";
 var trimUrl = (pathname) => pathname.endsWith("/") ? pathname.slice(0, pathname.length - 1) : pathname;
-var parseUrl = (url, parseQueryString = true) => {
+var parseUrl = (url, parseQueryString = false) => {
   url = urlParser(String.jet.to(url) || "/", parseQueryString);
   solid(url, "base", (!url.host ? "" : (!url.protocol ? "" : url.protocol + "//") + url.host) + trimUrl(url.pathname));
   solid(url, "toString", (_) => url.base, false);
   return url;
 };
+var decodeParam = (param) => param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
 
 // src/class/Route.js
 import { pathToRegexp } from "path-to-regexp";
@@ -38,7 +39,7 @@ __export(collections_exports, {
   default: () => collections_default
 });
 var collections_default = async (context, res) => {
-  const { model, server: { url } } = context;
+  const { model, int: { url } } = context;
   const collections = [];
   for (const name in model.entitySets) {
     if (!await context.filter(name)) {
@@ -249,24 +250,27 @@ filenames.forEach((pathname, index) => {
 
 // src/class/Route.js
 var { solid: solid2, cached, virtual } = jet5.prop;
-var decodeParam = (param) => param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
 var Route = class {
-  constructor(method, path, action) {
+  constructor(server, method, path, action) {
     const keys = [];
     cached(this, {}, "regex", (_) => pathToRegexp(path, keys), false);
     virtual(this, "keys", (_) => {
       this.regex;
       return keys;
     }, false);
+    solid2(this, "server", server, false);
     solid2.all(this, {
       method,
       path,
       action
     });
-    solid2(this, "resolver", actions_default[action]);
-    if (!this.resolver) {
-      throw Error(`Route action '${action}' is not implemented. Available actions: '${Object.keys(actions_default).join(", ")}' `);
+    solid2(this, "resolve", actions_default[action]);
+    if (!this.resolve) {
+      throw Error(this.msg(`action '${action}' is not one of: '${Object.keys(actions_default).join(", ")}'`));
     }
+  }
+  msg(text) {
+    return this.server.msg(`route '${this.path}' ${text}`);
   }
   test(pathname) {
     return this.regex.test(pathname);
@@ -275,7 +279,7 @@ var Route = class {
     const { action, regex, keys } = this;
     const ex = regex.exec(pathname);
     if (!ex) {
-      return;
+      throw Error(this.msg(`parseParams('${pathname}') failed`));
     }
     const params = {};
     for (let i = 0; i < keys.length; i++) {
@@ -293,8 +297,27 @@ import jet9 from "@randajan/jet-core";
 import parser from "odata-parser";
 import querystring from "querystring";
 import jet6 from "@randajan/jet-core";
-var { solid: solid3 } = jet6.prop;
-var _allowedQueryOptions = ["$", "$filter", "$expand", "$select", "$orderby", "$top", "$skip", "$count", "$format"];
+
+// src/consts.js
+var propTypes = [
+  "Edm.Int16",
+  "Edm.Int32",
+  "Edm.Int64",
+  "Edm.Boolean",
+  "Edm.String",
+  "Edm.Date",
+  "Edm.Single",
+  "Edm.Double",
+  "Edm.Decimal",
+  "Edm.TimeOfDay",
+  "Edm.DateTimeOffset",
+  "Edm.Byte",
+  "Edm.SByte3",
+  "Edm.Binary"
+];
+var allowedQueryOptions = ["$", "$filter", "$expand", "$select", "$orderby", "$top", "$skip", "$count", "$format"];
+
+// src/parsers/options.js
 var filterBug = (val) => Array.isArray(val) && val.length === 2 && val[0] === "null" && val[1] === "" ? null : val;
 var parseOp = (op, left, right, func, args) => {
   const r = op || [];
@@ -394,7 +417,7 @@ var parseQuery = (url) => {
   }
   let query = {};
   for (let k in url.query) {
-    if (_allowedQueryOptions.includes(k)) {
+    if (allowedQueryOptions.includes(k)) {
       query[k] = url.query[k];
     }
   }
@@ -406,7 +429,7 @@ var parseQuery = (url) => {
       return;
     }
   }
-  query = search ? parser.parse(search) : {};
+  query = search ? parser.parse(unwrap(search, "?") || search) : {};
   if (query.$inlinecount != null) {
     query.$count = true;
     delete query.$inlinecount;
@@ -501,19 +524,30 @@ var pullBody = async (context, to, vals, method) => {
 };
 
 // src/class/Context.js
-var { solid: solid4, cached: cached3 } = jet9.prop;
+var { solid: solid3, cached: cached3 } = jet9.prop;
 var Context = class {
-  constructor(server, req, model, adapter, filter, extender, custom) {
-    solid4(this, "request", req, false);
-    solid4.all(this, {
+  constructor(int, req, model, options = {}, extendArgs = []) {
+    const { server } = int;
+    const { adapter, filter, extender } = options;
+    solid3.all(this, {
+      "request": req,
+      filter: jet9.isRunnable(filter) ? (entity, property) => filter(this, entity, property) : (_) => true
+    }, false);
+    solid3.all(this, {
       server,
-      model,
-      filter: jet9.isRunnable(filter) ? (entity, property) => filter(this, entity, property) : (_) => true,
-      custom
+      int,
+      model
     });
     cached3.all(this, {}, {
+      url: (_) => {
+        const urlReq = req.originalUrl || req.url;
+        const urlBase = trimUrl(int.url.pathname);
+        if (!isWrapped(urlReq, urlBase)) {
+          return {};
+        }
+        return parseUrl(unwrap(urlReq, urlBase), true);
+      },
       method: (_) => req.method.toLowerCase(),
-      url: (_) => parseUrl(req.originalUrl || req.url, true),
       route: (_) => server.findRoute(this.method, this.url.pathname),
       params: (_) => this.route.parseParams(this.url.pathname)
     });
@@ -536,15 +570,15 @@ var Context = class {
       }
     }, false);
     if (jet9.isRunnable(extender)) {
-      extender(this);
+      extender(this, ...extendArgs);
     }
   }
   getScope(ids, quote = "") {
-    const { server: { url }, params: { entity } } = this;
+    const { int: { url }, params: { entity } } = this;
     return url + "/" + getScope(entity, ids, quote);
   }
   getScopeMeta(ids, quote = "") {
-    const { server: { url }, params: { entity } } = this;
+    const { int: { url }, params: { entity } } = this;
     return url + "/" + getScopeMeta(entity, ids, quote);
   }
   getScopeMetaEntity(ids, quote = "") {
@@ -575,27 +609,7 @@ import jet12 from "@randajan/jet-core";
 
 // src/class/ModelProp.js
 import jet10 from "@randajan/jet-core";
-
-// src/consts.js
-var propTypes = [
-  "Edm.Int16",
-  "Edm.Int32",
-  "Edm.Int64",
-  "Edm.Boolean",
-  "Edm.String",
-  "Edm.Date",
-  "Edm.Single",
-  "Edm.Double",
-  "Edm.Decimal",
-  "Edm.TimeOfDay",
-  "Edm.DateTimeOffset",
-  "Edm.Byte",
-  "Edm.SByte3",
-  "Edm.Binary"
-];
-
-// src/class/ModelProp.js
-var { solid: solid5 } = jet10.prop;
+var { solid: solid4 } = jet10.prop;
 var convert = (prop, method, vals, subCollection) => {
   const { isCollection, complex, primitive, name, model } = prop;
   if (name.startsWith("@odata")) {
@@ -611,24 +625,24 @@ var convert = (prop, method, vals, subCollection) => {
 };
 var ModelProp = class {
   constructor(model, msg, name, attrs) {
-    solid5(this, "model", model, false);
-    solid5(this, "name", name);
+    solid4(this, "model", model, false);
+    solid4(this, "name", name);
     attrs = Object.jet.to(attrs);
     for (const i in attrs) {
-      solid5(this, i, attrs[i]);
+      solid4(this, i, attrs[i]);
     }
     if (!this.type) {
       throw Error(msg(`missing!`, name, "type"));
     }
     const unCollection = unwrap(this.type, "Collection(", ")");
-    solid5(this, "isCollection", !!unCollection);
+    solid4(this, "isCollection", !!unCollection);
     const complexName = unwrap(unCollection || this.type, model.namespace + ".");
     const complex = model.complexTypes[complexName];
     if (complexName && !complex) {
       throw Error(msg(`definition missing at 'model.complexTypes.${complexName}'`, name, "type"));
     }
-    solid5(this, "primitive", complex ? void 0 : unCollection || this.type);
-    solid5(this, "complex", complex);
+    solid4(this, "primitive", complex ? void 0 : unCollection || this.type);
+    solid4(this, "complex", complex);
     if (!complex && !propTypes.includes(this.primitive)) {
       throw Error(msg(`invalid value '${this.type}' - accepts one of: '${propTypes.join(", ")}'`, name, "type"));
     }
@@ -643,14 +657,14 @@ var ModelProp = class {
 
 // src/class/ModelEntity.js
 import jet11 from "@randajan/jet-core";
-var { solid: solid6, cached: cached4 } = jet11.prop;
+var { solid: solid5, cached: cached4 } = jet11.prop;
 var ModelEntity = class {
   constructor(model, msg, name, attrs) {
-    solid6(this, "model", model, false);
-    solid6(this, "name", name);
+    solid5(this, "model", model, false);
+    solid5(this, "name", name);
     attrs = Object.jet.to(attrs);
     for (const i in attrs) {
-      solid6(this, i, attrs[i]);
+      solid5(this, i, attrs[i]);
     }
     const entityType = this.entityType;
     if (!entityType) {
@@ -664,7 +678,7 @@ var ModelEntity = class {
     if (!props) {
       throw Error(msg(`definition missing at 'model.entityTypes.${typeName}'`, name, "entityType"));
     }
-    solid6(this, "props", props);
+    solid5(this, "props", props);
     for (const propName in props) {
       if (!props[propName].key) {
         continue;
@@ -672,7 +686,7 @@ var ModelEntity = class {
       if (this.primaryKey) {
         throw Error(msg(`primaryKey is allready defined as ${this.primaryKey}`, name, propName));
       }
-      solid6(this, "primaryKey", propName);
+      solid5(this, "primaryKey", propName);
     }
     if (!this.primaryKey) {
       throw Error(msg(`primaryKey is missing`, name));
@@ -681,30 +695,30 @@ var ModelEntity = class {
 };
 
 // src/class/Model.js
-var { solid: solid7 } = jet12.prop;
+var { solid: solid6 } = jet12.prop;
 var createProp = (model, msg, name, attrs) => new ModelProp(model, msg, name, attrs);
 var createEntity = (model, msg, name, attrs) => new ModelEntity(model, msg, name, attrs);
 var createType = (model, msg, name, props) => assignPack({}, model, msg, name, props, createProp);
 var Model = class {
   constructor(server, model, converter) {
     const { namespace, entityTypes, entitySets, complexTypes } = model;
-    solid7(this, "server", server, false);
-    solid7(this, "namespace", String.jet.to(namespace));
+    solid6(this, "server", server, false);
+    solid6(this, "namespace", String.jet.to(namespace));
     if (!this.namespace) {
       throw Error(this.msg("namespace missing"));
     }
     const _msg = this.msg.bind(this);
-    solid7(this, "complexTypes", assignPack({}, this, _msg, "complexTypes", complexTypes, createType));
-    solid7(this, "entityTypes", assignPack({}, this, _msg, "entityTypes", entityTypes, createType));
-    solid7(this, "entitySets", assignPack({}, this, _msg, "entitySets", entitySets, createEntity));
-    solid7(this, "convert", {}, false);
+    solid6(this, "complexTypes", assignPack({}, this, _msg, "complexTypes", complexTypes, createType));
+    solid6(this, "entityTypes", assignPack({}, this, _msg, "entityTypes", entityTypes, createType));
+    solid6(this, "entitySets", assignPack({}, this, _msg, "entitySets", entitySets, createEntity));
+    solid6(this, "convert", {}, false);
     const csr = jet12.isRunnable(converter);
     if (!csr) {
       converter = Object.jet.to(converter);
     }
     propTypes.map((t) => {
       const fce = csr ? (v, method) => converter(t, v, method) : jet12.isRunnable(converter[t]) ? converter[t] : (v) => v;
-      solid7(this.convert, t, fce);
+      solid6(this.convert, t, fce);
     });
   }
   msg(text, ...path) {
@@ -729,76 +743,33 @@ var Model = class {
   }
 };
 
-// src/class/Server.js
-var { solid: solid8, virtual: virtual2, cached: cached5 } = jet13.prop;
-var Server = class {
-  constructor(config = {}) {
-    const { url, model, cors, adapter, converter, filter, extender } = config;
-    const [uid, _p] = vault.set({
-      isInitialized: false,
-      cors: String.jet.to(cors),
-      url: String.jet.to(url),
-      routes: {},
-      adapter,
-      filter,
-      extender
-    });
-    solid8(this, "uid", uid, false);
-    virtual2(this, "url", (_) => _p.url);
-    cached5(_p, {}, "model", async (_) => new Model(this, await (jet13.isRunnable(model) ? model() : model), converter));
-    if (_p.url) {
-      _p.url = parseUrl(_p.url);
-    }
-    this.addRoute("get", "/", "collections");
-    this.addRoute("get", "/$metadata", "metadata");
-    this.addRoute("get", "/:entity/$count", "count");
-    this.addRoute("get", "/:entity\\(:id\\)", "query");
-    this.addRoute("get", "/:entity", "query");
-    this.addRoute("delete", "/:entity\\(:id\\)", "remove");
-    this.addRoute("patch", "/:entity\\(:id\\)", "update");
-    this.addRoute("post", "/:entity", "insert");
-    if (_p.cors) {
-      this.addRoute("options", "/(.*)", "cors");
-    }
+// src/class/Interface.js
+import jet13 from "@randajan/jet-core";
+var { solid: solid7 } = jet13.prop;
+var Interface = class {
+  constructor(server, url, options = {}, extendArgs = []) {
+    solid7.all(this, {
+      server,
+      fetchContext: async (req, url2) => {
+        return new Context(this, req, await server.fetchModel(), options, extendArgs);
+      },
+      url: parseUrl(url, false)
+    }, false);
   }
   msg(text) {
-    return "ODataServer: " + text;
+    return this.server.msg(this.url.pathname + " " + text);
   }
-  addRoute(method, path, action) {
-    const { routes } = vault.get(this.uid);
-    const list = routes[method] || (routes[method] = []);
-    const route = new Route(method, trimUrl(this.url.pathname) + path, action);
-    list.push(route);
-    return route;
-  }
-  findRoute(method, path) {
-    const _p = vault.get(this.uid);
-    const routes = _p.routes[method] || [];
-    for (const route of routes) {
-      if (route.test(path)) {
-        return route;
-      }
-    }
-    throw { code: 404, msg: "Not found" };
-  }
-  async resolve(req, res, customContext) {
+  async resolve(req, res) {
+    const { server } = this;
     try {
-      const _p = vault.get(this.uid);
-      if (!_p.url) {
-        if (!req.protocol) {
-          throw Error(this.msg("Unable to determine server url from the request or value provided in the ODataServer constructor."));
-        }
-        const urlFull = parseUrl(req.protocol + "://" + req.get("host") + (req.originalUrl || req.url));
-        _p.url = parseUrl(urlFull.base.replace(/\/[^\/]*$/g, ""));
-      }
       res.setHeader("OData-Version", "4.0");
       res.setHeader("DataServiceVersion", "4.0");
-      if (_p.cors) {
-        res.setHeader("Access-Control-Allow-Origin", _p.cors);
+      if (server.cors) {
+        res.setHeader("Access-Control-Allow-Origin", server.cors);
       }
-      const context = new Context(this, req, await _p.model, _p.adapter, _p.filter, _p.extender, customContext);
-      const { resolver } = context.route;
-      await resolver(context, res);
+      const context = await this.fetchContext(req);
+      const { resolve } = context.route;
+      await resolve(context, res);
     } catch (e) {
       const error = {
         code: e?.code || 500,
@@ -813,8 +784,61 @@ var Server = class {
       res.end(JSON.stringify({ error }));
     }
   }
-  createResolver(customContext) {
-    return (req, res) => this.resolve(req, res, customContext);
+};
+
+// src/class/Server.js
+var { solid: solid8 } = jet14.prop;
+var Server = class {
+  constructor(options = {}) {
+    const { model, cors, converter } = options;
+    const [uid, _p] = vault.set({
+      routes: {}
+    });
+    solid8(this, "uid", uid, false);
+    solid8(this, "cors", String.jet.to(cors));
+    solid8.all(this, {
+      fetchModel: async (_) => {
+        if (_p.model) {
+          return _p.model;
+        }
+        return _p.model = new Model(this, await (jet14.isRunnable(model) ? model() : model), converter);
+      },
+      serve: (url, ...extendArgs) => {
+        const int = new Interface(this, url, options, extendArgs);
+        return int.resolve.bind(int);
+      }
+    }, false);
+    this.addRoute("get", "/", "collections");
+    this.addRoute("get", "/$metadata", "metadata");
+    this.addRoute("get", "/:entity/$count", "count");
+    this.addRoute("get", "/:entity\\(:id\\)", "query");
+    this.addRoute("get", "/:entity", "query");
+    this.addRoute("delete", "/:entity\\(:id\\)", "remove");
+    this.addRoute("patch", "/:entity\\(:id\\)", "update");
+    this.addRoute("post", "/:entity", "insert");
+    if (this.cors) {
+      this.addRoute("options", "/(.*)", "cors");
+    }
+  }
+  msg(text) {
+    return "OData server " + text;
+  }
+  addRoute(method, path, action) {
+    const { routes } = vault.get(this.uid);
+    const list = routes[method] || (routes[method] = []);
+    const route = new Route(this, method, path, action);
+    list.push(route);
+    return route;
+  }
+  findRoute(method, path) {
+    const _p = vault.get(this.uid);
+    const routes = _p.routes[method] || [];
+    for (const route of routes) {
+      if (route.test(path)) {
+        return route;
+      }
+    }
+    throw { code: 404, msg: "Not found" };
   }
 };
 

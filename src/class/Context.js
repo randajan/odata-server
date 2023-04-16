@@ -2,26 +2,36 @@ import jet from "@randajan/jet-core";
 
 import { _fetchOptions } from "../parsers/options";
 import { _fetchBody } from "../parsers/inputs";
-import { getScope, getScopeMeta, parseUrl, unwrap } from "../tools";
+import { getScope, getScopeMeta, isWrapped, parseUrl, trimUrl, unwrap } from "../tools";
 import { pullBody } from "../parsers/types";
 
 const { solid, cached } = jet.prop;
 
 
 export class Context {
-    constructor(server, req, model, adapter, filter, extender, custom) {
+    constructor(int, req, model, options={}, extendArgs=[]) {
+        const { server } = int;
+        const { adapter, filter, extender, } = options;
 
-        solid(this, "request", req, false);
+        solid.all(this, {
+            "request":req,
+            filter:jet.isRunnable(filter) ? (entity, property)=>filter(this, entity, property) : _=>true
+        }, false);
+
         solid.all(this, {
             server,
-            model,
-            filter:jet.isRunnable(filter) ? (entity, property)=>filter(this, entity, property) : _=>true,
-            custom
+            int,
+            model
         });
 
         cached.all(this, {}, {
+            url: _ =>{
+                const urlReq = (req.originalUrl || req.url);
+                const urlBase = trimUrl(int.url.pathname);
+                if (!isWrapped(urlReq, urlBase)) { return {}; }
+                return parseUrl(unwrap(urlReq, urlBase), true);
+            },
             method: _ => req.method.toLowerCase(),
-            url: _ => parseUrl(req.originalUrl || req.url, true),
             route: _ => server.findRoute(this.method, this.url.pathname),
             params: _ => this.route.parseParams(this.url.pathname)
         });
@@ -41,16 +51,16 @@ export class Context {
             }
         }, false);
 
-        if (jet.isRunnable(extender)) { extender(this); }
+        if (jet.isRunnable(extender)) { extender(this, ...extendArgs); }
     }
 
     getScope(ids, quote = "") {
-        const { server:{url}, params:{entity} } = this;
+        const { int:{url}, params:{entity} } = this;
         return url + "/" + getScope(entity, ids, quote);
     }
 
     getScopeMeta(ids, quote = "") {
-        const { server:{url}, params:{entity} } = this;
+        const { int:{url}, params:{entity} } = this;
         return url + "/" + getScopeMeta(entity, ids, quote);
     }
 

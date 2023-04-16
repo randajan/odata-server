@@ -2,9 +2,9 @@ import parser from 'odata-parser';
 import querystring from 'querystring';
 import jet from "@randajan/jet-core";
 
-const { solid } = jet.prop;
+import { unwrap } from "../tools";
+import { allowedQueryOptions } from '../consts';
 
-const _allowedQueryOptions = ['$', '$filter', '$expand', '$select', '$orderby', '$top', '$skip', '$count', '$format'];
 
 // odata parser returns ['null', ''] for a filter with "field eq null"
 // we handle the case by fixing the query in case this happens
@@ -96,7 +96,7 @@ const parseQuery = (url) => {
 
   let query = {};
   for (let k in url.query) {
-    if (_allowedQueryOptions.includes(k)) { query[k] = url.query[k]; }
+    if (allowedQueryOptions.includes(k)) { query[k] = url.query[k]; }
   }
 
   //workaround v4 => v3
@@ -109,7 +109,7 @@ const parseQuery = (url) => {
     if (!search) { return; }
   }
 
-  query = search ? parser.parse(search) : {};
+  query = search ? parser.parse(unwrap(search, "?") || search) : {};
 
   if (query.$inlinecount != null) {
     query.$count = true;

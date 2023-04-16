@@ -2,31 +2,35 @@ import { pathToRegexp } from 'path-to-regexp';
 import jet from "@randajan/jet-core";
 
 import actions from "../actions";
+import { decodeParam } from '../tools';
 
 const { solid, cached, virtual } = jet.prop;
 
-const decodeParam = param=>param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
-
 export class Route {
-    constructor(method, path, action) {
+    constructor(server, method, path, action) {
 
         const keys = [];
 
         cached(this, {}, "regex", _ => pathToRegexp(path, keys), false);
         virtual(this, "keys", _ => { this.regex; return keys; }, false);
 
+        solid(this, "server", server, false);
         solid.all(this, {
             method,
             path,
             action
         });
 
-        solid(this, "resolver", actions[action]);
+        solid(this, "resolve", actions[action]);
 
-        if (!this.resolver) {
-            throw Error(`Route action '${action}' is not implemented. Available actions: '${Object.keys(actions).join(", ")}' `);
+        if (!this.resolve) {
+            throw Error(this.msg(`action '${action}' is not one of: '${Object.keys(actions).join(", ")}'`));
         }
 
+    }
+
+    msg(text) {
+        return this.server.msg(`route '${this.path}' ${text}`);
     }
 
     test(pathname) {
@@ -37,7 +41,7 @@ export class Route {
         const { action, regex, keys } = this;
         const ex = regex.exec(pathname);
 
-        if (!ex) { return; }
+        if (!ex) { throw Error(this.msg(`parseParams('${pathname}') failed`)); }
         const params = {};
 
         for (let i = 0; i < keys.length; i++) {
