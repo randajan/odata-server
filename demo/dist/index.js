@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.7.3", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.7.4", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -516,10 +516,13 @@ var assignPack = (obj, model2, msg, name, childs, validateChild) => {
   }
   return obj;
 };
-var _pull = async (context, to, vals, method) => {
+var _pull = async (method, context, vals, to) => {
   const { name, props } = await context.fetchEntity();
   if (typeof vals !== "object") {
     return to;
+  }
+  if (typeof to !== "object") {
+    to = {};
   }
   for (let i in vals) {
     const prop = props[i];
@@ -540,10 +543,13 @@ var pullBody = async (context, to, vals, method) => {
   const toArray = Array.isArray(to);
   vals = toArray === Array.isArray(vals) ? vals : toArray ? [vals] : vals[0];
   if (!toArray) {
-    return _pull(context, to, vals, method);
+    return _pull(method, context, vals, to);
   }
-  for (const val of vals) {
-    to.push(await _pull(context, {}, val, method));
+  for (const raw of vals) {
+    const val = await _pull(method, context, raw);
+    if (val) {
+      to.push(val);
+    }
   }
   return to;
 };

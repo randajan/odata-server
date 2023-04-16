@@ -492,10 +492,13 @@ var assignPack = (obj, model, msg, name, childs, validateChild) => {
   }
   return obj;
 };
-var _pull = async (context, to, vals, method) => {
+var _pull = async (method, context, vals, to) => {
   const { name, props } = await context.fetchEntity();
   if (typeof vals !== "object") {
     return to;
+  }
+  if (typeof to !== "object") {
+    to = {};
   }
   for (let i in vals) {
     const prop = props[i];
@@ -516,10 +519,13 @@ var pullBody = async (context, to, vals, method) => {
   const toArray = Array.isArray(to);
   vals = toArray === Array.isArray(vals) ? vals : toArray ? [vals] : vals[0];
   if (!toArray) {
-    return _pull(context, to, vals, method);
+    return _pull(method, context, vals, to);
   }
-  for (const val of vals) {
-    to.push(await _pull(context, {}, val, method));
+  for (const raw of vals) {
+    const val = await _pull(method, context, raw);
+    if (val) {
+      to.push(val);
+    }
   }
   return to;
 };
