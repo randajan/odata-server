@@ -67,7 +67,7 @@ export default async (context, res) => {
   const out = builder.create(metadata).end({ pretty: true });
 
   res.setHeader('Content-Type', 'application/xml');
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(out);
 
 }

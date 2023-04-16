@@ -9,7 +9,7 @@ const { solid } = jet.prop;
 export class Interface {
 
     constructor(server, url, options={}, extendArgs=[]) {
-        const { adapter, filter, extender } = options;
+        const { adapter, filter, extender, onError } = options;
 
         solid.all(this, {
             server,
@@ -19,6 +19,7 @@ export class Interface {
                 if (jet.isRunnable(extender)) { await extender(context, ...extendArgs); }
                 return context;
             },
+            onError:jet.isRunnable(onError) ? onError : ()=>{}
         }, false);
 
     }
@@ -29,13 +30,15 @@ export class Interface {
 
     async resolve(req, res) {
         const { server } = this;
+        let context;
+
         try {
 
             res.setHeader('OData-Version', '4.0');
             res.setHeader('DataServiceVersion', '4.0');
             if (server.cors) { res.setHeader('Access-Control-Allow-Origin', server.cors); }
 
-            const context = await this.fetchContext(req);
+            context = await this.fetchContext(req);
             const { resolve } = context.route;
 
             await resolve(context, res);
@@ -54,6 +57,7 @@ export class Interface {
             res.statusCode = error.code;
             res.setHeader('Content-Type', 'application/json');
 
+            this.onError(context, error);
             res.end(JSON.stringify({ error }))
 
         }

@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.7.1", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.7.2", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -122,7 +122,7 @@ var collections_default = async (context, res) => {
     value: collections
   };
   res.setHeader("Content-Type", "application/json");
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(JSON.stringify(out));
 };
 var cors_exports = {};
@@ -130,7 +130,7 @@ __export(cors_exports, {
   default: () => cors_default
 });
 var cors_default = async (context, res) => {
-  res.stateCode = 204;
+  res.statusCode = 204;
   res.end();
 };
 var count_exports = {};
@@ -146,7 +146,7 @@ var count_default = async (context, res) => {
     value: count
   };
   res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(JSON.stringify(out));
 };
 var insert_exports = {};
@@ -226,7 +226,7 @@ var metadata_default = async (context, res) => {
   };
   const out = builder.create(metadata).end({ pretty: true });
   res.setHeader("Content-Type", "application/xml");
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(out);
 };
 var query_exports = {};
@@ -253,7 +253,7 @@ var query_default = async (context, res) => {
     out.value = value;
   }
   res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(JSON.stringify(out));
 };
 var remove_exports = {};
@@ -265,7 +265,7 @@ var remove_default = async (context, res) => {
   if (!rawBody) {
     throw { code: 404, msg: "Not found" };
   }
-  res.stateCode = 204;
+  res.statusCode = 204;
   res.end();
 };
 var update_exports = {};
@@ -277,7 +277,7 @@ var update_default = async (context, res) => {
   if (!rawBody) {
     throw { code: 404, msg: "Not found" };
   }
-  res.stateCode = 204;
+  res.statusCode = 204;
   res.end();
 };
 var modules = [collections_exports, cors_exports, count_exports, insert_exports, metadata_exports, query_exports, remove_exports, update_exports];
@@ -752,7 +752,7 @@ var Model = class {
 var { solid: solid7 } = jet13.prop;
 var Interface = class {
   constructor(server, url, options = {}, extendArgs = []) {
-    const { adapter, filter, extender } = options;
+    const { adapter, filter, extender, onError } = options;
     solid7.all(this, {
       server,
       url: parseUrl(url, false),
@@ -762,6 +762,8 @@ var Interface = class {
           await extender(context, ...extendArgs);
         }
         return context;
+      },
+      onError: jet13.isRunnable(onError) ? onError : () => {
       }
     }, false);
   }
@@ -770,13 +772,14 @@ var Interface = class {
   }
   async resolve(req, res) {
     const { server } = this;
+    let context;
     try {
       res.setHeader("OData-Version", "4.0");
       res.setHeader("DataServiceVersion", "4.0");
       if (server.cors) {
         res.setHeader("Access-Control-Allow-Origin", server.cors);
       }
-      const context = await this.fetchContext(req);
+      context = await this.fetchContext(req);
       const { resolve } = context.route;
       await resolve(context, res);
     } catch (e) {
@@ -790,6 +793,7 @@ var Interface = class {
       };
       res.statusCode = error.code;
       res.setHeader("Content-Type", "application/json");
+      this.onError(context, error);
       res.end(JSON.stringify({ error }));
     }
   }

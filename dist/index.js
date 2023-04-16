@@ -56,7 +56,7 @@ var collections_default = async (context, res) => {
     value: collections
   };
   res.setHeader("Content-Type", "application/json");
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(JSON.stringify(out));
 };
 
@@ -66,7 +66,7 @@ __export(cors_exports, {
   default: () => cors_default
 });
 var cors_default = async (context, res) => {
-  res.stateCode = 204;
+  res.statusCode = 204;
   res.end();
 };
 
@@ -85,7 +85,7 @@ var count_default = async (context, res) => {
     value: count
   };
   res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(JSON.stringify(out));
 };
 
@@ -171,7 +171,7 @@ var metadata_default = async (context, res) => {
   };
   const out = builder.create(metadata).end({ pretty: true });
   res.setHeader("Content-Type", "application/xml");
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(out);
 };
 
@@ -201,7 +201,7 @@ var query_default = async (context, res) => {
     out.value = value;
   }
   res.setHeader("Content-Type", "application/json;odata.metadata=minimal");
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(JSON.stringify(out));
 };
 
@@ -215,7 +215,7 @@ var remove_default = async (context, res) => {
   if (!rawBody) {
     throw { code: 404, msg: "Not found" };
   }
-  res.stateCode = 204;
+  res.statusCode = 204;
   res.end();
 };
 
@@ -229,7 +229,7 @@ var update_default = async (context, res) => {
   if (!rawBody) {
     throw { code: 404, msg: "Not found" };
   }
-  res.stateCode = 204;
+  res.statusCode = 204;
   res.end();
 };
 
@@ -744,7 +744,7 @@ import jet13 from "@randajan/jet-core";
 var { solid: solid7 } = jet13.prop;
 var Interface = class {
   constructor(server, url, options = {}, extendArgs = []) {
-    const { adapter, filter, extender } = options;
+    const { adapter, filter, extender, onError } = options;
     solid7.all(this, {
       server,
       url: parseUrl(url, false),
@@ -754,6 +754,8 @@ var Interface = class {
           await extender(context, ...extendArgs);
         }
         return context;
+      },
+      onError: jet13.isRunnable(onError) ? onError : () => {
       }
     }, false);
   }
@@ -762,13 +764,14 @@ var Interface = class {
   }
   async resolve(req, res) {
     const { server } = this;
+    let context;
     try {
       res.setHeader("OData-Version", "4.0");
       res.setHeader("DataServiceVersion", "4.0");
       if (server.cors) {
         res.setHeader("Access-Control-Allow-Origin", server.cors);
       }
-      const context = await this.fetchContext(req);
+      context = await this.fetchContext(req);
       const { resolve } = context.route;
       await resolve(context, res);
     } catch (e) {
@@ -782,6 +785,7 @@ var Interface = class {
       };
       res.statusCode = error.code;
       res.setHeader("Content-Type", "application/json");
+      this.onError(context, error);
       res.end(JSON.stringify({ error }));
     }
   }

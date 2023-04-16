@@ -20,6 +20,6 @@ export default async (context, res) => {
   }
 
   res.setHeader('Content-Type', 'application/json;odata.metadata=minimal');
-  res.stateCode = 200;
+  res.statusCode = 200;
   res.end(JSON.stringify(out));
 }
