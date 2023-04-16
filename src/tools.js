@@ -23,7 +23,7 @@ export const unwrap = (str, prefix="", suffix="")=>isWrapped(str = String.jet.to
 export const parseUrl = (url, parseQueryString=true, baseUrl=undefined)=>{
     url = String.jet.to(url);
     if (baseUrl) { url = url.replace(new RegExp(`^((${baseUrl.protocol}//)?${baseUrl.host})?${baseUrl.pathname}`), ""); }
-    url = urlParser(url, parseQueryString);
+    url = urlParser(url || "/", parseQueryString);
     solid(url, "base", (!url.host ? "" : (!url.protocol ? "" : url.protocol+"//")+url.host) + url.pathname);
     solid(url, "toString", _=>url.base, false);
     return url;

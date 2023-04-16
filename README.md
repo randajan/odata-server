@@ -52,6 +52,9 @@ const config = {
         }
     },
     adapter:mongoAdapter(getMongo),
+    extender:context=>{
+        context.test = "This will be present in the context"
+    }
     converter:(primitive, value, method)=>{
         console.log(primitive, value, method);
         return value;
@@ -59,12 +62,12 @@ const config = {
     filter:(context, collectionName, propertyName)=>{
         console.log(collectionName, propertyName);
         return true;
-    }
+    },
 }
 
 const server = ODataServer(config);
 
-http.createServer(server.resolver).listen(1337);
+http.createServer(server.createResolver("custom")).listen(1337);
 
 ```
 
@@ -81,8 +84,12 @@ It works well also with the express.js.
 You even don't need to provide url in the `config` because it is also could be taken from the express.js request.
 
 ```js
-app.use("/odata", server.resolver);
+app.use("/odata", server.createResolver("custom");
 ```
+
+## server.createResolver(custom)
+This is factory function and will return resolver binded to the server. The first argument will be present at "context.custom"
+
 ## config property
 
 ### config.url
@@ -131,6 +138,9 @@ Argument `method` represent the direction of conversion and it could be one of:
 ### config.filter
 Provide function here for dynamic filtering model (entities and their props). Everytime server tries to access model it will call this function.
 Return false means that there is no access. This can't be used to filter records based on their value.
+
+### config.extender
+This function will be called everytime context is created so you can add your own properties and pass them to the adapter
 
 ## Limitations
 - no entity links

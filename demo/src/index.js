@@ -48,11 +48,16 @@ const mongoApi = ODataServer({
         return value;
     },
     filter:(context, collectionName, propertyName)=>{
+        console.log(context);
+        if (context.custom === "silent") { return false; }
         //if (propertyName === "test") { return false; }
         //return collectionName !== "users";
         return true;
+    },
+    extender:(context)=>{
+        context.test = "AAAAA";
     }
 });
 
 
-http.createServer(mongoApi.resolver).listen(1337);
+http.createServer(mongoApi.createResolver("silents")).listen(1337);

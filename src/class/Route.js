@@ -18,7 +18,7 @@ export class Route {
         solid.all(this, {
             method,
             path,
-            action,
+            action
         });
 
         solid(this, "resolver", actions[action]);
@@ -34,7 +34,7 @@ export class Route {
     }
 
     parseParams(pathname) {
-        const { regex, keys } = this;
+        const { action, regex, keys } = this;
         const ex = regex.exec(pathname);
 
         if (!ex) { return; }
@@ -43,6 +43,8 @@ export class Route {
         for (let i = 0; i < keys.length; i++) {
             solid(params, keys[i].name, decodeParam(ex[i + 1]));
         }
+        
+        solid(params, "count", action === "count");
 
         return params;
     }

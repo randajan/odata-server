@@ -9,20 +9,21 @@ const { solid, cached } = jet.prop;
 
 
 export class Context {
-    constructor(server, req, model, adapter, filter) {
+    constructor(server, req, model, adapter, filter, extender, custom) {
 
         solid(this, "request", req, false);
         solid.all(this, {
             server,
             model,
-            filter:jet.isRunnable(filter) ? (entity, property)=>filter(this, entity, property) : _=>true
+            filter:jet.isRunnable(filter) ? (entity, property)=>filter(this, entity, property) : _=>true,
+            custom
         });
 
         cached.all(this, {}, {
             method: _ => req.method.toLowerCase(),
             url: _ => parseUrl(req.originalUrl || req.url, true, server.url),
             route: _ => server.findRoute(this.method, this.url.pathname),
-            params: _ => this.route.parseParams(this.url.pathname),
+            params: _ => this.route.parseParams(this.url.pathname)
         });
 
         cached.all(this, {}, {
@@ -39,6 +40,8 @@ export class Context {
                 throw { code:501, msg:`Action '${action}' is not implemented` };
             }
         }, false);
+
+        if (jet.isRunnable(extender)) { extender(this); }
     }
 
     getScope(ids, quote = "") {

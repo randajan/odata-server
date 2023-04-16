@@ -13,7 +13,7 @@ const { solid, virtual, cached } = jet.prop;
 export class Server {
   constructor(config={}) {
 
-    const { url, model, cors, adapter, converter, filter } = config;
+    const { url, model, cors, adapter, converter, filter, extender } = config;
 
     const [ uid, _p ] = vault.set({
       isInitialized:false,
@@ -21,17 +21,12 @@ export class Server {
       url:String.jet.to(url),
       routes:{},
       adapter,
-      filter
+      filter,
+      extender
     });
 
-    solid.all(this, {
-      uid,
-    }, false);
-
-    virtual.all(this, {
-      url:_=>_p.url,
-      resolver:_=>this.resolve.bind(this)
-    });
+    solid(this, "uid", uid, false);
+    virtual(this, "url", _=>_p.url);
 
     cached(_p, {}, "model", async _=>new Model(this, await (jet.isRunnable(model) ? model() : model), converter));
 
@@ -75,7 +70,7 @@ export class Server {
     throw { code: 404, msg: "Not found" };
   }
 
-  async resolve(req, res) {
+  async resolve(req, res, customContext) {
     try {
       const _p = vault.get(this.uid);
 
@@ -92,10 +87,8 @@ export class Server {
       res.setHeader('DataServiceVersion', '4.0');
       if (_p.cors) { res.setHeader('Access-Control-Allow-Origin', _p.cors); }
 
-      const context = new Context(this, req, await _p.model, _p.adapter, _p.filter);
-      const { action, resolver } = context.route;
-
-      if (action === "count") { solid(context.params, "count", true); }
+      const context = new Context(this, req, await _p.model, _p.adapter, _p.filter, _p.extender, customContext);
+      const { resolver } = context.route;
 
       await resolver(context, res);
 
@@ -117,6 +110,10 @@ export class Server {
 
     }
 
+  }
+
+  createResolver(customContext) {
+    return (req, res)=>this.resolve(req, res, customContext);
   }
 
 }

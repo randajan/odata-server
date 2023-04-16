@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.5.2", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.5.3", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -96,7 +96,7 @@ var parseUrl = (url, parseQueryString = true, baseUrl = void 0) => {
   if (baseUrl) {
     url = url.replace(new RegExp(`^((${baseUrl.protocol}//)?${baseUrl.host})?${baseUrl.pathname}`), "");
   }
-  url = urlParser(url, parseQueryString);
+  url = urlParser(url || "/", parseQueryString);
   solid(url, "base", (!url.host ? "" : (!url.protocol ? "" : url.protocol + "//") + url.host) + url.pathname);
   solid(url, "toString", (_) => url.base, false);
   return url;
@@ -316,7 +316,7 @@ var Route = class {
     return this.regex.test(pathname);
   }
   parseParams(pathname) {
-    const { regex, keys } = this;
+    const { action, regex, keys } = this;
     const ex = regex.exec(pathname);
     if (!ex) {
       return;
@@ -325,6 +325,7 @@ var Route = class {
     for (let i = 0; i < keys.length; i++) {
       solid2(params, keys[i].name, decodeParam(ex[i + 1]));
     }
+    solid2(params, "count", action === "count");
     return params;
   }
 };
@@ -530,12 +531,13 @@ var pullBody = async (context, to, vals, method) => {
 };
 var { solid: solid4, cached: cached3 } = jet9.prop;
 var Context = class {
-  constructor(server, req, model2, adapter, filter) {
+  constructor(server, req, model2, adapter, filter, extender, custom) {
     solid4(this, "request", req, false);
     solid4.all(this, {
       server,
       model: model2,
-      filter: jet9.isRunnable(filter) ? (entity, property) => filter(this, entity, property) : (_) => true
+      filter: jet9.isRunnable(filter) ? (entity, property) => filter(this, entity, property) : (_) => true,
+      custom
     });
     cached3.all(this, {}, {
       method: (_) => req.method.toLowerCase(),
@@ -561,6 +563,9 @@ var Context = class {
         throw { code: 501, msg: `Action '${action}' is not implemented` };
       }
     }, false);
+    if (jet9.isRunnable(extender)) {
+      extender(this);
+    }
   }
   getScope(ids, quote = "") {
     const { server: { url }, params: { entity } } = this;
@@ -739,22 +744,18 @@ var Model = class {
 var { solid: solid8, virtual: virtual2, cached: cached5 } = jet13.prop;
 var Server = class {
   constructor(config = {}) {
-    const { url, model: model2, cors, adapter, converter, filter } = config;
+    const { url, model: model2, cors, adapter, converter, filter, extender } = config;
     const [uid, _p] = vault.set({
       isInitialized: false,
       cors: String.jet.to(cors),
       url: String.jet.to(url),
       routes: {},
       adapter,
-      filter
+      filter,
+      extender
     });
-    solid8.all(this, {
-      uid
-    }, false);
-    virtual2.all(this, {
-      url: (_) => _p.url,
-      resolver: (_) => this.resolve.bind(this)
-    });
+    solid8(this, "uid", uid, false);
+    virtual2(this, "url", (_) => _p.url);
     cached5(_p, {}, "model", async (_) => new Model(this, await (jet13.isRunnable(model2) ? model2() : model2), converter));
     if (_p.url) {
       _p.url = parseUrl(_p.url);
@@ -791,7 +792,7 @@ var Server = class {
     }
     throw { code: 404, msg: "Not found" };
   }
-  async resolve(req, res) {
+  async resolve(req, res, customContext) {
     try {
       const _p = vault.get(this.uid);
       if (!_p.url) {
@@ -806,11 +807,8 @@ var Server = class {
       if (_p.cors) {
         res.setHeader("Access-Control-Allow-Origin", _p.cors);
       }
-      const context = new Context(this, req, await _p.model, _p.adapter, _p.filter);
-      const { action, resolver } = context.route;
-      if (action === "count") {
-        solid8(context.params, "count", true);
-      }
+      const context = new Context(this, req, await _p.model, _p.adapter, _p.filter, _p.extender, customContext);
+      const { resolver } = context.route;
       await resolver(context, res);
     } catch (e) {
       const error = {
@@ -825,6 +823,9 @@ var Server = class {
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ error }));
     }
+  }
+  createResolver(customContext) {
+    return (req, res) => this.resolve(req, res, customContext);
   }
 };
 var src_default = (options) => new Server(options);
@@ -938,8 +939,15 @@ var mongoApi = src_default({
     return value;
   },
   filter: (context, collectionName, propertyName) => {
+    console.log(context);
+    if (context.custom === "silent") {
+      return false;
+    }
     return true;
+  },
+  extender: (context) => {
+    context.test = "AAAAA";
   }
 });
-http.createServer(mongoApi.resolver).listen(1337);
+http.createServer(mongoApi.createResolver("silents")).listen(1337);
 //# sourceMappingURL=index.js.map
