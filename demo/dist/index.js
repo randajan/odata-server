@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.7.2", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.7.3", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -454,12 +454,13 @@ var parseQuery = (url) => {
   if (Boolean.jet.to(query.$count)) {
     query["$inlinecount"] = "allpages";
     delete query.$count;
-    search = decodeURIComponent(querystring.stringify(query));
+    search = querystring.stringify(query);
     if (!search) {
       return;
     }
   }
-  query = search ? parser.parse(unwrap(search, "?") || search) : {};
+  search = decodeURIComponent(unwrap(search, "?") || search);
+  query = search ? parser.parse(search) : {};
   if (query.$inlinecount != null) {
     query.$count = true;
     delete query.$inlinecount;
@@ -969,7 +970,6 @@ var mongoApi = src_default({
   },
   extender: async (context, test) => {
     context.test = test;
-    console.log(await context.fetchRequestBodyRaw());
   }
 });
 http.createServer(mongoApi.serve("http://localhost:1337/odata", "tsest")).listen(1337);

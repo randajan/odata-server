@@ -104,12 +104,13 @@ const parseQuery = (url) => {
     query["$inlinecount"] = "allpages";
 
     delete query.$count;
-    search = decodeURIComponent(querystring.stringify(query));
+    search = querystring.stringify(query);
 
     if (!search) { return; }
   }
 
-  query = search ? parser.parse(unwrap(search, "?") || search) : {};
+  search = decodeURIComponent(unwrap(search, "?") || search);
+  query = search ? parser.parse(search) : {};
 
   if (query.$inlinecount != null) {
     query.$count = true;
