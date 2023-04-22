@@ -211,6 +211,7 @@ __export(remove_exports, {
   default: () => remove_default
 });
 var remove_default = async (context, res) => {
+  await context.fetchEntity();
   const rawBody = await context.fetchResponseBodyRaw();
   if (!rawBody) {
     throw { code: 404, msg: "Not found" };
@@ -225,6 +226,7 @@ __export(update_exports, {
   default: () => update_default
 });
 var update_default = async (context, res) => {
+  await context.fetchEntity();
   const rawBody = await context.fetchResponseBodyRaw();
   if (!rawBody) {
     throw { code: 404, msg: "Not found" };
@@ -760,7 +762,6 @@ var Interface = class {
         if (jet13.isRunnable(extender)) {
           await extender(context, ...extendArgs);
         }
-        await context.fetchEntity();
         return context;
       },
       onError: jet13.isRunnable(onError) ? onError : () => {

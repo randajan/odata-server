@@ -17,7 +17,6 @@ export class Interface {
             fetchContext:async req=>{
                 const context = new Context(this, req, await server.fetchModel(), adapter, filter);
                 if (jet.isRunnable(extender)) { await extender(context, ...extendArgs); }
-                await context.fetchEntity();
                 return context;
             },
             onError:jet.isRunnable(onError) ? onError : ()=>{}
