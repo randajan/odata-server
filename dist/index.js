@@ -760,6 +760,7 @@ var Interface = class {
         if (jet13.isRunnable(extender)) {
           await extender(context, ...extendArgs);
         }
+        await context.fetchEntity();
         return context;
       },
       onError: jet13.isRunnable(onError) ? onError : () => {
