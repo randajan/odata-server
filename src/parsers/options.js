@@ -109,7 +109,8 @@ const parseQuery = (url) => {
     if (!search) { return; }
   }
 
-  search = decodeURIComponent(unwrap(search, "?") || search);
+  search = decodeURIComponent((unwrap(search, "?") || search).replace(/\+/g, " "));
+  
   query = search ? parser.parse(search) : {};
 
   if (query.$inlinecount != null) {

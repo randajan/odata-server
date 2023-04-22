@@ -53,6 +53,8 @@ const mongoApi = ODataServer({
         return true;
     },
     extender: async (context, test)=>{
+
+        console.log(await context.fetchOptions());
         context.test = test;
     }
 });
