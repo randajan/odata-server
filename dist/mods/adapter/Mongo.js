@@ -1,4 +1,4 @@
-// src/adapter/MongoAdapter.js
+// src/mods/adapter/Mongo.js
 import { ObjectId } from "mongodb";
 import jet from "@randajan/jet-core";
 var { solid } = jet.prop;
@@ -62,9 +62,9 @@ var MongoAdapter = class {
     return (await this.query(context)).length;
   }
 };
-var MongoAdapter_default = (connect) => new MongoAdapter(connect);
+var Mongo_default = (connect) => new MongoAdapter(connect);
 export {
   MongoAdapter,
-  MongoAdapter_default as default
+  Mongo_default as default
 };
-//# sourceMappingURL=MongoAdapter.js.map
+//# sourceMappingURL=Mongo.js.map

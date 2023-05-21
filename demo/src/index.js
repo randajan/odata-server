@@ -1,6 +1,7 @@
 import { info } from "@randajan/simple-lib/node";
 import ODataServer from "../../dist/index.js";
-import mongoAdapter from "../../dist/adapter/MongoAdapter.js";
+import mongoAdapter from "../../dist/mods/adapter/Mongo.js";
+import expressResponder from "../../dist/mods/responder/Express.js";
 
 import { MongoClient } from "mongodb";
 import http from "http";
@@ -54,10 +55,9 @@ const mongoApi = ODataServer({
     },
     extender: async (context, test)=>{
 
-        console.log(await context.fetchOptions());
+        //console.log(await context.fetchOptions());
         context.test = test;
     }
 });
 
-
-http.createServer(mongoApi.serve('http://localhost:1337/odata', "tsest")).listen(1337);
+http.createServer(mongoApi.serve(expressResponder, 'http://localhost:1337/odata', "tesst")).listen(1337);

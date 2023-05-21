@@ -1,4 +1,5 @@
-export default async (context, res) => {
-    res.statusCode = 204;
-    res.end();
-  };
+export default async context => {
+    const { responder } = context;
+    
+    return responder.setBody(204);
+};

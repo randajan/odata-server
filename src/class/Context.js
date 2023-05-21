@@ -1,36 +1,34 @@
 import jet from "@randajan/jet-core";
 
 import { _fetchOptions } from "../parsers/options";
-import { _fetchBody } from "../parsers/inputs";
 import { getScope, getScopeMeta, isWrapped, parseUrl, trimUrl, unwrap } from "../tools";
 import { pullBody } from "../parsers/types";
 
-const { solid, cached } = jet.prop;
-
+const { solid, cached, safe } = jet.prop;
 
 export class Context {
-    constructor(int, req, model, adapter, filter) {
-        const { server } = int;
-
-        solid.all(this, {
-            "request":req,
-            filter:jet.isRunnable(filter) ? (entity, property)=>filter(this, entity, property) : _=>true
-        }, false);
+    constructor(gw, model, responder, adapter, filter) {
+        const { server } = gw;
 
         solid.all(this, {
             server,
-            int,
+            gw,
             model
         });
 
+        solid.all(this, {
+            responder,
+            filter:jet.isRunnable(filter) ? (entity, property)=>filter(this, entity, property) : _=>true
+        }, false);
+
         cached.all(this, {}, {
             url: _ =>{
-                const urlReq = (req.originalUrl || req.url);
-                const urlBase = trimUrl(int.url.pathname);
+                const urlReq = responder.getURL();
+                const urlBase = trimUrl(gw.url.pathname);
                 if (!isWrapped(urlReq, urlBase)) { return {}; }
                 return parseUrl(unwrap(urlReq, urlBase), true);
             },
-            method: _ => req.method.toLowerCase(),
+            method: _ => responder.getMethod().toLowerCase(),
             route: _ => server.findRoute(this.method, this.url.pathname),
             params: _ => this.route.parseParams(this.url.pathname)
         });
@@ -38,11 +36,11 @@ export class Context {
         cached.all(this, {}, {
             _entity: async _ =>{
                 const { entity } = this.params;
-                if (await this.filter(entity)) { return model.findEntity(entity); }
+                if (await this.filter(entity)) { return this.model.findEntity(entity); }
                 throw { code:403, msg:`Forbidden` };
             },
             _options: async _ => _fetchOptions(this.url, this.params, (await this._entity).primaryKey),
-            _requestBodyRaw: async _=>_fetchBody(req),
+            _requestBodyRaw: async _=>responder.getBody(),
             _responseBodyRaw: async _=>{
                 const { action } = this.route;
                 if (adapter[action]) { return adapter[action](this); }
@@ -52,12 +50,12 @@ export class Context {
     }
 
     getScope(ids, quote = "") {
-        const { int:{url}, params:{entity} } = this;
+        const { gw:{url}, params:{entity} } = this;
         return url + "/" + getScope(entity, ids, quote);
     }
 
     getScopeMeta(ids, quote = "") {
-        const { int:{url}, params:{entity} } = this;
+        const { gw:{url}, params:{entity} } = this;
         return url + "/" + getScopeMeta(entity, ids, quote);
     }
 
@@ -88,7 +86,5 @@ export class Context {
     async pullResponseBody(to={}) {
         return pullBody(this, to, await this.fetchResponseBodyRaw(), "toResponse");
     }
-
- 
 
 }

@@ -5,34 +5,33 @@ import { parseUrl, trimUrl, unwrap, vault } from "../tools";
 
 import { Route } from "./Route";
 
-import { Context } from "./Context";
 import { Model } from "./Model";
-import { Interface } from "./Interface";
+import { Gateway } from "./Gateway";
 
-const { solid } = jet.prop;
+const { solid, cached } = jet.prop;
 
 export class Server {
   constructor(options={}) {
 
-    const { model, cors, converter } = options;
+    const { model, cors, converter, onError } = options;
 
     const [ uid, _p ] = vault.set({
       routes:{},
-      //model
     });
 
     solid(this, "uid", uid, false);
     solid(this, "cors", String.jet.to(cors));
 
+    cached.all(this, _p, {
+      _model:async _=>new Model(this, await (jet.isRunnable(model) ? model() : model), converter)
+    }, false);
+
     solid.all(this, {
-      fetchModel:async _=>{
-        if (_p.model) { return _p.model; }
-        return _p.model = new Model(this, await (jet.isRunnable(model) ? model() : model), converter);
+      serve:(responder, url, ...extendArgs)=>{
+        const gw = new Gateway(this, url, options, extendArgs);
+        return (...a)=>gw.resolve(responder(...a));
       },
-      serve:(url, ...extendArgs)=>{
-        const int = new Interface(this, url, options, extendArgs);
-        return int.resolve.bind(int);
-      }
+      onError:jet.isRunnable(onError) ? onError : ()=>{}
     }, false);
 
     this.addRoute("get", '/', "collections");
@@ -71,6 +70,10 @@ export class Server {
     }
 
     throw { code: 404, msg: "Not found" };
+  }
+
+  async fetchModel() {
+    return this._model;
   }
 
 }
