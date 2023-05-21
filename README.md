@@ -79,8 +79,19 @@ GET [http://localhost:1337/users?$orderby=test desc]()<br/>
 GET [http://localhost:1337/users/$count]()<br/>
 POST, PATCH, DELETE
 
-## server.serve(url, ...extendArgs)
+## server.serve(responder, url, ...extendArgs)
 This is factory function and will return resolver binded to the server. The first argument represent base url. Next arguments will be passed to the function `extender`.
+
+## responder
+There is only express implementation for now
+- [express](https://expressjs.com/) - @randajan/odata-server/express
+
+You can create your own responder. It accepts function that will create object with these properties:
+- getURL
+- getMethod
+- getBody (_could be async_)
+- setHeader
+- setBody
 
 ## config property
 
@@ -94,6 +105,8 @@ You can create your own adapter. It accepts any kind of object and it will look 
 - insert
 - update
 - remove
+
+
 
 ### config.cors
 You can quickly set up cors without using express and middlewares using this property
