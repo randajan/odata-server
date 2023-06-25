@@ -37,10 +37,9 @@ export class KoaResponder {
     }
 
     getType() {
-        const accepts = this.context.accepts(["json", "xml"]);
-        if (!Array.isArray(accepts)) { return; }
-        const xml = accepts.includes("xml");
-        const json = accepts.includes("json");
+        const ctx = this.context;
+        const json = ctx.accepts("json");
+        const xml = ctx.accepts("xml");
         if (xml !== json) { return xml ? "xml" : "json"; }
     }
 

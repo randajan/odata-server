@@ -35,7 +35,8 @@ export class ExpressResponder {
     }
 
     getType() {
-        const headers = jet.json.from(this.request.headers);
+        const req = this.request;
+        const headers = jet.json.from(req.headers);
         const accept = headers?.accept;
         if (typeof accept !== "string") { return; }
         const xml = accept.includes("xml");
