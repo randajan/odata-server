@@ -83,13 +83,15 @@ POST, PATCH, DELETE
 This is factory function and will return resolver binded to the server. The first argument represent base url. Next arguments will be passed to the function `extender`.
 
 ## responder
-There is only express implementation for now
+There is only two implementation for now
 - [express](https://expressjs.com/) - @randajan/odata-server/express
+- koa - @randajan/odata-server/koa
 
 You can create your own responder. It accepts function that will create object with these properties:
 - getURL
 - getMethod
 - getBody (_could be async_)
+- getType (json || xml) affect only $metadata
 - setHeader
 - setBody
 

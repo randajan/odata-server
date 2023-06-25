@@ -37,7 +37,7 @@ export class KoaResponder {
     }
 
     getType() {
-        const accepts = this.request.accepts(["json", "xml"]);
+        const accepts = this.context.accepts(["json", "xml"]);
         if (!Array.isArray(accepts)) { return; }
         const xml = accepts.includes("xml");
         const json = accepts.includes("json");
