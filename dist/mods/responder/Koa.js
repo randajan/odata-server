@@ -14,25 +14,7 @@ var KoaResponder = class {
   async getBody() {
     const ctx = this.context;
     const req = ctx.request;
-    const body = ctx.body || req.body;
-    if (body) {
-      return body;
-    }
-    return new Promise((res, rej) => {
-      let body2 = "";
-      req.on("data", (data) => {
-        if ((body2 += data).length > 1e6) {
-          rej({ statusCode: 400, msg: "Request is too long" });
-        }
-      });
-      req.on("end", (_) => {
-        try {
-          res(body2 ? JSON.parse(body2) : void 0);
-        } catch (e) {
-          rej({ statusCode: 400, msg: e.message });
-        }
-      });
-    });
+    return req.body;
   }
   getType() {
     const ctx = this.context;

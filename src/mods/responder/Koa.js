@@ -20,20 +20,7 @@ export class KoaResponder {
         const ctx = this.context;
         const req = ctx.request;
 
-        const body = ctx.body || req.body;
-
-        if (body) { return body; }
-    
-        return new Promise((res, rej) => {
-            let body = "";
-            req.on('data', data => {
-                if ((body += data).length > 1e6) { rej({ statusCode: 400, msg: "Request is too long" }); }
-            });
-            req.on('end', _ => {
-                try { res(body ? JSON.parse(body) : undefined); }
-                catch(e) { rej({ statusCode:400, msg:e.message }); }
-            });
-        });
+        return req.body;
     }
 
     getType() {
