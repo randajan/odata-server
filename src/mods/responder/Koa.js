@@ -2,25 +2,27 @@ import jet from "@randajan/jet-core";
 
 const { solid } = jet.prop;
 
-export class ExpressResponder {
+export class KoaResponder {
 
-    constructor(request, response) {
-        solid.all(this, {request, response});
+    constructor(context) {
+        solid.all(this, {context});
     }
 
     getURL() {
-        const req = this.request;
-        return req.originalUrl || req.url;
+        return this.context.request.url;
     }
 
     getMethod() {
-        return this.request.method;
+        return this.context.request.method;
     }
 
     async getBody() {
-        const req = this.request;
+        const ctx = this.context;
+        const req = ctx.request;
 
-        if (req.body) { return req.body; }
+        const body = ctx.body || req.body;
+
+        if (body) { return body; }
     
         return new Promise((res, rej) => {
             let body = "";
@@ -35,25 +37,22 @@ export class ExpressResponder {
     }
 
     getType() {
-        const headers = jet.json.from(this.request.headers);
-        const accept = headers?.accept;
-        if (typeof accept !== "string") { return; }
-        const xml = accept.includes("xml");
-        const json = accept.includes("json");
+        const accepts = this.request.accepts(["json", "xml"]);
+        if (!Array.isArray(accepts)) { return; }
+        const xml = accepts.includes("xml");
+        const json = accepts.includes("json");
         if (xml !== json) { return xml ? "xml" : "json"; }
     }
 
     setHeader(name, value) {
-        this.response.setHeader(name, value);
+        this.context.set(name, value);
     }
 
     setBody(statusCode, body) {
-        const res = this.response;
-
-        res.statusCode = statusCode;
-        res.end(body);
+        this.context.status = statusCode;
+        this.context.body = body;
     }
     
 }
 
-export default (req, res)=>new ExpressResponder(req, res);
+export default (ctx)=>new KoaResponder(ctx);

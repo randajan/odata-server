@@ -1,5 +1,6 @@
 
 import { parse as urlParser } from "url";
+import builder from 'xmlbuilder';
 import jet from "@randajan/jet-core";
 
 const { solid } = jet.prop;
@@ -29,3 +30,13 @@ export const parseUrl = (url, parseQueryString=false)=>{
 }
 
 export const decodeParam = param=>param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
+
+const _knownBodyTypes = ["json", "xml"];
+export const setResponderBody = (responder, body, defaultType="json", extraType="")=>{
+    let type = responder.getType();
+    if (!type || !_knownBodyTypes.includes(type)) { type = defaultType; }
+
+    responder.setHeader("Content-Type", `application/${type}` + (extraType ? ";"+extraType : ""));
+    const out = type === "json" ? JSON.stringify(body) : builder.create(body).end({ pretty: true });
+    return responder.setBody(200, out);
+}

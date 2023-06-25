@@ -1,4 +1,4 @@
-import { unwrap } from "../../tools";
+import { setResponderBody, unwrap } from "../../tools";
 import builder from 'xmlbuilder';
 
 const mapProps = async (props, entity, filter)=>{
@@ -62,7 +62,6 @@ export default async context=> {
     }
   }
 
-  responder.setHeader("Content-Type", "application/xml");
-  return responder.setBody(200, builder.create(out).end({ pretty: true }));
+  return setResponderBody(responder, out, "xml");
 
 }

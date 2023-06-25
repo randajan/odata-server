@@ -9,6 +9,7 @@ import jet10 from "@randajan/jet-core";
 
 // src/tools.js
 import { parse as urlParser } from "url";
+import builder from "xmlbuilder";
 import jet from "@randajan/jet-core";
 var { solid } = jet.prop;
 var vault = jet.vault("ODataServer");
@@ -28,6 +29,16 @@ var parseUrl = (url, parseQueryString = false) => {
   return url;
 };
 var decodeParam = (param) => param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
+var _knownBodyTypes = ["json", "xml"];
+var setResponderBody = (responder, body, defaultType = "json", extraType = "") => {
+  let type = responder.getType();
+  if (!type || !_knownBodyTypes.includes(type)) {
+    type = defaultType;
+  }
+  responder.setHeader("Content-Type", `application/${type}` + (extraType ? ";" + extraType : ""));
+  const out = type === "json" ? JSON.stringify(body) : builder.create(body).end({ pretty: true });
+  return responder.setBody(200, out);
+};
 
 // src/class/Route.js
 import { pathToRegexp } from "path-to-regexp";
@@ -111,7 +122,7 @@ var metadata_exports = {};
 __export(metadata_exports, {
   default: () => metadata_default
 });
-import builder from "xmlbuilder";
+import builder2 from "xmlbuilder";
 var mapProps = async (props, entity, filter) => {
   const r = [];
   for (const name in props) {
@@ -166,8 +177,7 @@ var metadata_default = async (context) => {
       }
     }
   };
-  responder.setHeader("Content-Type", "application/xml");
-  return responder.setBody(200, builder.create(out).end({ pretty: true }));
+  return setResponderBody(responder, out, "xml");
 };
 
 // src/actions/resolvers/query.js

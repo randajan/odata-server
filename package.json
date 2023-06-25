@@ -9,7 +9,8 @@
   "exports": {
     ".": "./dist/index.js",
     "./mongo": "./dist/mods/adapter/Mongo.js",
-    "./express": "./dist/mods/responder/Express.js"
+    "./express": "./dist/mods/responder/Express.js",
+    "./koa": "./dist/mods/responder/Koa.js"
   },
   "scripts": {
     "start": "set NODE_ENV=dev&& node ./index.js",

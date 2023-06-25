@@ -7,7 +7,7 @@ slib(process.env.NODE_ENV !== "dev", {
     port:4002,
     mode:"node",
     lib:{
-        entries:["index.js", "mods/adapter/Mongo.js", "mods/responder/Express.js"],
+        entries:["index.js", "mods/adapter/Mongo.js", "mods/responder/Express.js", "mods/responder/Koa.js"],
         plugins:[ImportGlobPlugin.default()]
     },
     demo:{

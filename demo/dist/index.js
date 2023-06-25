@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "1.7.8", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "2.0.0", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -60,10 +60,11 @@ process.on("uncaughtException", (e) => {
 // dist/index.js
 import jet10 from "@randajan/jet-core";
 import { parse as urlParser } from "url";
+import builder from "xmlbuilder";
 import jet from "@randajan/jet-core";
 import { pathToRegexp } from "path-to-regexp";
 import jet2 from "@randajan/jet-core";
-import builder from "xmlbuilder";
+import builder2 from "xmlbuilder";
 import jet6 from "@randajan/jet-core";
 import jet3 from "@randajan/jet-core";
 import jet4 from "@randajan/jet-core";
@@ -96,6 +97,16 @@ var parseUrl = (url, parseQueryString = false) => {
   return url;
 };
 var decodeParam = (param) => param && decodeURIComponent(param).replace(/(^["'`]+)|(["'`]+$)/g, "");
+var _knownBodyTypes = ["json", "xml"];
+var setResponderBody = (responder, body, defaultType = "json", extraType = "") => {
+  let type = responder.getType();
+  if (!type || !_knownBodyTypes.includes(type)) {
+    type = defaultType;
+  }
+  responder.setHeader("Content-Type", `application/${type}` + (extraType ? ";" + extraType : ""));
+  const out = type === "json" ? JSON.stringify(body) : builder.create(body).end({ pretty: true });
+  return responder.setBody(200, out);
+};
 var collections_exports = {};
 __export(collections_exports, {
   default: () => collections_default
@@ -219,8 +230,7 @@ var metadata_default = async (context) => {
       }
     }
   };
-  responder.setHeader("Content-Type", "application/xml");
-  return responder.setBody(200, builder.create(out).end({ pretty: true }));
+  return setResponderBody(responder, out, "xml");
 };
 var query_exports = {};
 __export(query_exports, {
@@ -935,6 +945,18 @@ var ExpressResponder = class {
         }
       });
     });
+  }
+  getType() {
+    const headers = jet12.json.from(this.request.headers);
+    const accept = headers?.accept;
+    if (typeof accept !== "string") {
+      return;
+    }
+    const xml = accept.includes("xml");
+    const json = accept.includes("json");
+    if (xml !== json) {
+      return xml ? "xml" : "json";
+    }
   }
   setHeader(name, value) {
     this.response.setHeader(name, value);

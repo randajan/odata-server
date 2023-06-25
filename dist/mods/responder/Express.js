@@ -33,6 +33,18 @@ var ExpressResponder = class {
       });
     });
   }
+  getType() {
+    const headers = jet.json.from(this.request.headers);
+    const accept = headers?.accept;
+    if (typeof accept !== "string") {
+      return;
+    }
+    const xml = accept.includes("xml");
+    const json = accept.includes("json");
+    if (xml !== json) {
+      return xml ? "xml" : "json";
+    }
+  }
   setHeader(name, value) {
     this.response.setHeader(name, value);
   }
