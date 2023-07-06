@@ -5,17 +5,17 @@ import { unwrap } from "../tools";
 
 const { solid } = jet.prop;
 
-const convert = (prop, method, vals, subCollection)=> {
+const convert = (prop, vals, method, context, subCollection)=> {
     const { isCollection, complex, primitive, name, model } = prop;
     if (name.startsWith("@odata")) { return; }
 
     if (!subCollection && isCollection) {
-        return (Array.isArray(vals) ? vals : [vals]).map(v=>convert(prop, method, v, true));
+        return (Array.isArray(vals) ? vals : [vals]).map(v=>convert(prop, v, method, context, true));
     }
 
     if (complex) { return complex[method](vals); }
 
-    return model.convert[primitive](vals, method);
+    return model.convert[primitive](vals, method, context);
 }
 
 export class ModelProp {
@@ -46,13 +46,17 @@ export class ModelProp {
 
     }
 
-
-    toAdapter(val) {
-        return convert(this, "toAdapter", val);
+    convert(val, method, context) {
+        return convert(this, val, method, context);
     }
 
-    toResponse(val) {
-        return convert(this, "toResponse", val);
+
+    toAdapter(val, context) {
+        return this.convert(val, "toAdapter", context);
+    }
+
+    toResponse(val, context) {
+        return this.convert(val, "toResponse", context);
     }
 
 }

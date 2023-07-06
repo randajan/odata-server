@@ -33,7 +33,7 @@ export class Model {
         if (!csr) { converter = Object.jet.to(converter); }
 
         propTypes.map(t=>{
-            const fce = csr ? (v, method)=>converter(t, v, method) : jet.isRunnable(converter[t]) ? converter[t] : v=>v;
+            const fce = csr ? (v, method, context)=>converter(t, v, method, context) : jet.isRunnable(converter[t]) ? converter[t] : v=>v;
             solid(this.convert, t, fce);
         });
         

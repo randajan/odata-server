@@ -43,8 +43,9 @@ const mongoApi = ODataServer({
     model,
     cors:"*",
     adapter:mongoAdapter(getMongo),
-    converter:(primitive, value, method)=>{
+    converter:(primitive, value, method, context)=>{
         //console.log(primitive, value, method);
+        console.log(primitive, method, context.test);
         return value;
     },
     filter:async (context, collectionName, propertyName)=>{

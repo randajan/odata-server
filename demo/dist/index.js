@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "2.1.2", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: false, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "2.1.3", author: "Jan Randa", env: "dev", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -353,18 +353,18 @@ var propTypes = [
 ];
 var allowedQueryOptions = ["$", "$filter", "$expand", "$select", "$orderby", "$top", "$skip", "$count", "$format"];
 var { solid: solid3 } = jet3.prop;
-var convert = (prop, method, vals, subCollection) => {
+var convert = (prop, vals, method, context, subCollection) => {
   const { isCollection, complex, primitive, name, model: model2 } = prop;
   if (name.startsWith("@odata")) {
     return;
   }
   if (!subCollection && isCollection) {
-    return (Array.isArray(vals) ? vals : [vals]).map((v) => convert(prop, method, v, true));
+    return (Array.isArray(vals) ? vals : [vals]).map((v) => convert(prop, v, method, context, true));
   }
   if (complex) {
     return complex[method](vals);
   }
-  return model2.convert[primitive](vals, method);
+  return model2.convert[primitive](vals, method, context);
 };
 var ModelProp = class {
   constructor(model2, msg, name, attrs) {
@@ -390,11 +390,14 @@ var ModelProp = class {
       throw Error(msg(`invalid value '${this.type}' - accepts one of: '${propTypes.join(", ")}'`, name, "type"));
     }
   }
-  toAdapter(val) {
-    return convert(this, "toAdapter", val);
+  convert(val, method, context) {
+    return convert(this, val, method, context);
   }
-  toResponse(val) {
-    return convert(this, "toResponse", val);
+  toAdapter(val, context) {
+    return this.convert(val, "toAdapter", context);
+  }
+  toResponse(val, context) {
+    return this.convert(val, "toResponse", context);
   }
 };
 var { solid: solid4, cached: cached2 } = jet4.prop;
@@ -446,7 +449,7 @@ var assignPack = (obj, model2, msg, name, childs, validateChild) => {
   }
   return obj;
 };
-var _pull = async (method, context, vals, to) => {
+var _pull = async (vals, method, context, to) => {
   const { name, props } = await context.fetchEntity();
   if (typeof vals !== "object") {
     return to;
@@ -462,21 +465,21 @@ var _pull = async (method, context, vals, to) => {
     if (!prop.key && !await context.filter(name, i)) {
       continue;
     }
-    const val = prop[method](vals[i]);
+    const val = prop.convert(vals[i], method, context);
     if (val !== void 0) {
       to[i] = val;
     }
   }
   return to;
 };
-var pullBody = async (context, to, vals, method) => {
+var pullBody = async (vals, method, context, to) => {
   const toArray = Array.isArray(to);
   vals = toArray === Array.isArray(vals) ? vals : toArray ? [vals] : vals[0];
   if (!toArray) {
-    return _pull(method, context, vals, to);
+    return _pull(vals, method, context, to);
   }
   for (const raw of vals) {
-    const val = await _pull(method, context, raw);
+    const val = await _pull(raw, method, context);
     if (val) {
       to.push(val);
     }
@@ -505,7 +508,7 @@ var Model = class {
       converter = Object.jet.to(converter);
     }
     propTypes.map((t) => {
-      const fce = csr ? (v, method) => converter(t, v, method) : jet6.isRunnable(converter[t]) ? converter[t] : (v) => v;
+      const fce = csr ? (v, method, context) => converter(t, v, method, context) : jet6.isRunnable(converter[t]) ? converter[t] : (v) => v;
       solid5(this.convert, t, fce);
     });
   }
@@ -734,10 +737,10 @@ var Context = class {
     return this._responseBodyRaw;
   }
   async pullRequestBody(to = {}) {
-    return pullBody(this, to, await this.fetchRequestBodyRaw(), "toAdapter");
+    return pullBody(await this.fetchRequestBodyRaw(), "toAdapter", this, to);
   }
   async pullResponseBody(to = {}) {
-    return pullBody(this, to, await this.fetchResponseBodyRaw(), "toResponse");
+    return pullBody(await this.fetchResponseBodyRaw(), "toResponse", this, to);
   }
 };
 var { solid: solid7 } = jet9.prop;
@@ -1008,7 +1011,8 @@ var mongoApi = src_default({
   model,
   cors: "*",
   adapter: Mongo_default(getMongo),
-  converter: (primitive, value, method) => {
+  converter: (primitive, value, method, context) => {
+    console.log(primitive, method, context.test);
     return value;
   },
   filter: async (context, collectionName, propertyName) => {

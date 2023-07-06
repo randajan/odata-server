@@ -80,11 +80,11 @@ export class Context {
     }
 
     async pullRequestBody(to={}) {
-        return pullBody(this, to, await this.fetchRequestBodyRaw(), "toAdapter");
+        return pullBody(await this.fetchRequestBodyRaw(), "toAdapter", this, to);
     }
 
     async pullResponseBody(to={}) {
-        return pullBody(this, to, await this.fetchResponseBodyRaw(), "toResponse");
+        return pullBody(await this.fetchResponseBodyRaw(), "toResponse", this, to);
     }
 
 }

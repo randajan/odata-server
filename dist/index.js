@@ -322,18 +322,18 @@ var allowedQueryOptions = ["$", "$filter", "$expand", "$select", "$orderby", "$t
 
 // src/class/ModelProp.js
 var { solid: solid3 } = jet3.prop;
-var convert = (prop, method, vals, subCollection) => {
+var convert = (prop, vals, method, context, subCollection) => {
   const { isCollection, complex, primitive, name, model } = prop;
   if (name.startsWith("@odata")) {
     return;
   }
   if (!subCollection && isCollection) {
-    return (Array.isArray(vals) ? vals : [vals]).map((v) => convert(prop, method, v, true));
+    return (Array.isArray(vals) ? vals : [vals]).map((v) => convert(prop, v, method, context, true));
   }
   if (complex) {
     return complex[method](vals);
   }
-  return model.convert[primitive](vals, method);
+  return model.convert[primitive](vals, method, context);
 };
 var ModelProp = class {
   constructor(model, msg, name, attrs) {
@@ -359,11 +359,14 @@ var ModelProp = class {
       throw Error(msg(`invalid value '${this.type}' - accepts one of: '${propTypes.join(", ")}'`, name, "type"));
     }
   }
-  toAdapter(val) {
-    return convert(this, "toAdapter", val);
+  convert(val, method, context) {
+    return convert(this, val, method, context);
   }
-  toResponse(val) {
-    return convert(this, "toResponse", val);
+  toAdapter(val, context) {
+    return this.convert(val, "toAdapter", context);
+  }
+  toResponse(val, context) {
+    return this.convert(val, "toResponse", context);
   }
 };
 
@@ -421,7 +424,7 @@ var assignPack = (obj, model, msg, name, childs, validateChild) => {
   }
   return obj;
 };
-var _pull = async (method, context, vals, to) => {
+var _pull = async (vals, method, context, to) => {
   const { name, props } = await context.fetchEntity();
   if (typeof vals !== "object") {
     return to;
@@ -437,21 +440,21 @@ var _pull = async (method, context, vals, to) => {
     if (!prop.key && !await context.filter(name, i)) {
       continue;
     }
-    const val = prop[method](vals[i]);
+    const val = prop.convert(vals[i], method, context);
     if (val !== void 0) {
       to[i] = val;
     }
   }
   return to;
 };
-var pullBody = async (context, to, vals, method) => {
+var pullBody = async (vals, method, context, to) => {
   const toArray = Array.isArray(to);
   vals = toArray === Array.isArray(vals) ? vals : toArray ? [vals] : vals[0];
   if (!toArray) {
-    return _pull(method, context, vals, to);
+    return _pull(vals, method, context, to);
   }
   for (const raw of vals) {
-    const val = await _pull(method, context, raw);
+    const val = await _pull(raw, method, context);
     if (val) {
       to.push(val);
     }
@@ -482,7 +485,7 @@ var Model = class {
       converter = Object.jet.to(converter);
     }
     propTypes.map((t) => {
-      const fce = csr ? (v, method) => converter(t, v, method) : jet6.isRunnable(converter[t]) ? converter[t] : (v) => v;
+      const fce = csr ? (v, method, context) => converter(t, v, method, context) : jet6.isRunnable(converter[t]) ? converter[t] : (v) => v;
       solid5(this.convert, t, fce);
     });
   }
@@ -724,10 +727,10 @@ var Context = class {
     return this._responseBodyRaw;
   }
   async pullRequestBody(to = {}) {
-    return pullBody(this, to, await this.fetchRequestBodyRaw(), "toAdapter");
+    return pullBody(await this.fetchRequestBodyRaw(), "toAdapter", this, to);
   }
   async pullResponseBody(to = {}) {
-    return pullBody(this, to, await this.fetchResponseBodyRaw(), "toResponse");
+    return pullBody(await this.fetchResponseBodyRaw(), "toResponse", this, to);
   }
 };
 
