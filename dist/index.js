@@ -437,7 +437,7 @@ var _pull = async (vals, method, context, to) => {
     if (!prop) {
       continue;
     }
-    if (!prop.key && !await context.filter(name, i)) {
+    if (!await context.filter(name, i)) {
       continue;
     }
     const val = prop.convert(vals[i], method, context);
