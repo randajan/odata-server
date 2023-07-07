@@ -26,7 +26,7 @@ const _pull = async (vals, method, context, to)=>{
     for (let i in vals) {
         const prop = props[i];
         if (!prop) { continue; }
-        if (!await context.filter(name, i)) { continue; }
+        if (!prop.key && !await context.filter(name, i)) { continue; }
         const val = prop.convert(vals[i], method, context);
         if (val !== undefined) { to[i] = val; }
     }
