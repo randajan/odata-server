@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "2.1.4", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "2.1.7", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -348,8 +348,8 @@ var propTypes = [
   "Edm.TimeOfDay",
   "Edm.DateTimeOffset",
   "Edm.Byte",
-  "Edm.SByte3",
-  "Edm.Binary"
+  "Edm.Binary",
+  "Edm.Duration"
 ];
 var allowedQueryOptions = ["$", "$filter", "$expand", "$select", "$orderby", "$top", "$skip", "$count", "$format"];
 var { solid: solid3 } = jet3.prop;
@@ -462,7 +462,7 @@ var _pull = async (vals, method, context, to) => {
     if (!prop) {
       continue;
     }
-    if (!await context.filter(name, i)) {
+    if (!prop.key && !await context.filter(name, i)) {
       continue;
     }
     const val = prop.convert(vals[i], method, context);

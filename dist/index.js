@@ -315,8 +315,8 @@ var propTypes = [
   "Edm.TimeOfDay",
   "Edm.DateTimeOffset",
   "Edm.Byte",
-  "Edm.SByte3",
-  "Edm.Binary"
+  "Edm.Binary",
+  "Edm.Duration"
 ];
 var allowedQueryOptions = ["$", "$filter", "$expand", "$select", "$orderby", "$top", "$skip", "$count", "$format"];
 
@@ -437,7 +437,7 @@ var _pull = async (vals, method, context, to) => {
     if (!prop) {
       continue;
     }
-    if (!await context.filter(name, i)) {
+    if (!prop.key && !await context.filter(name, i)) {
       continue;
     }
     const val = prop.convert(vals[i], method, context);
@@ -841,10 +841,33 @@ var Server = class {
   }
 };
 
+// src/converters.js
+var _timespanPattern = /PT(\d+)H(\d+)M(\d+)S/;
+var msToTimespan = (milliseconds) => {
+  const totalSeconds = Math.floor(milliseconds / 1e3);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor(totalSeconds % 3600 / 60);
+  const seconds = totalSeconds % 60;
+  return `PT${hours}H${minutes}M${seconds}S`;
+};
+var timespanToMs = (timespan) => {
+  const matches = String(timespan).match(_timespanPattern);
+  if (!matches || matches.length !== 4) {
+    return 0;
+  }
+  const hours = parseInt(matches[1], 10);
+  const minutes = parseInt(matches[2], 10);
+  const seconds = parseInt(matches[3], 10);
+  const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+  return totalSeconds * 1e3;
+};
+
 // src/index.js
 var src_default = (options) => new Server(options);
 export {
   Server,
-  src_default as default
+  src_default as default,
+  msToTimespan,
+  timespanToMs
 };
 //# sourceMappingURL=index.js.map

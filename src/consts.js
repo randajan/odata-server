@@ -13,8 +13,8 @@ export const propTypes = [
     'Edm.TimeOfDay',
     'Edm.DateTimeOffset',
     'Edm.Byte',
-    'Edm.SByte3',
     'Edm.Binary',
+    'Edm.Duration'
 ];
 
 export const knownActions = [
