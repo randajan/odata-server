@@ -853,7 +853,7 @@ var msToTimespan = (milliseconds, quoteLeft = "duration'", quoteRight = "'") => 
   let rest = milliseconds;
   let duration = "P";
   let groupCurrent = "";
-  for ({ unit, factor, group } of _tsList) {
+  for (const { unit, factor, group } of _tsList) {
     const value = Math.floor(rest / factor);
     rest %= factor;
     if (value <= 0) {
@@ -871,7 +871,7 @@ var timespanToMs = (timespan = "", quoteLeft = "duration'", quoteRight = "'") =>
   const m = unwrap(timespan, quoteLeft, quoteRight).match(_tsPattern);
   let ms = 0;
   if (m?.length) {
-    for ({ factor, patternIndex } of _tsList) {
+    for (const { factor, patternIndex } of _tsList) {
       const value = parseInt(m[patternIndex], 10);
       if (!isNaN(value)) {
         ms += value * factor;
