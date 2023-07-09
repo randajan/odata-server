@@ -842,24 +842,44 @@ var Server = class {
 };
 
 // src/converters.js
-var _timespanPattern = /PT(\d+)H(\d+)M(\d+)S/;
-var msToTimespan = (milliseconds) => {
-  const totalSeconds = Math.floor(milliseconds / 1e3);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor(totalSeconds % 3600 / 60);
-  const seconds = totalSeconds % 60;
-  return `PT${hours}H${minutes}M${seconds}S`;
-};
-var timespanToMs = (timespan) => {
-  const matches = String(timespan).match(_timespanPattern);
-  if (!matches || matches.length !== 4) {
-    return 0;
+var _tsPattern = /^P([0-9]+D)?(T([0-9]+H)?([0-9]+M)?([0-9]+S)?)?$/;
+var _tsList = [
+  { unit: "D", factor: 864e5, group: "", patternIndex: 1 },
+  { unit: "H", factor: 36e5, group: "T", patternIndex: 3 },
+  { unit: "M", factor: 6e4, group: "T", patternIndex: 4 },
+  { unit: "S", factor: 1e3, group: "T", patternIndex: 5 }
+];
+var msToTimespan = (milliseconds, quoteLeft = "duration'", quoteRight = "'") => {
+  let rest = milliseconds;
+  let duration = "P";
+  let groupCurrent = "";
+  for ({ unit, factor, group } of _tsList) {
+    const value = Math.floor(rest / factor);
+    rest %= factor;
+    if (value <= 0) {
+      continue;
+    }
+    if (group !== groupCurrent) {
+      duration += groupCurrent = group;
+    }
+    duration += `${value}${unit}`;
   }
-  const hours = parseInt(matches[1], 10);
-  const minutes = parseInt(matches[2], 10);
-  const seconds = parseInt(matches[3], 10);
-  const totalSeconds = hours * 3600 + minutes * 60 + seconds;
-  return totalSeconds * 1e3;
+  ;
+  return quoteLeft + duration + quoteRight;
+};
+var timespanToMs = (timespan = "", quoteLeft = "duration'", quoteRight = "'") => {
+  const m = unwrap(timespan, quoteLeft, quoteRight).match(_tsPattern);
+  let ms = 0;
+  if (m?.length) {
+    for ({ factor, patternIndex } of _tsList) {
+      const value = parseInt(m[patternIndex], 10);
+      if (!isNaN(value)) {
+        ms += value * factor;
+      }
+    }
+    ;
+  }
+  return ms;
 };
 
 // src/index.js
