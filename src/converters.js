@@ -9,6 +9,7 @@ const _tsList = [
 ];
 
 export const msToTimespan = (milliseconds, quoteLeft = "duration'", quoteRight = "'") => {
+    if (typeof milliseconds !== "number" || isNaN(milliseconds) || milliseconds < 0) { return; }
     let rest = milliseconds;
     let duration = "P";
     let groupCurrent = "";
@@ -26,20 +27,19 @@ export const msToTimespan = (milliseconds, quoteLeft = "duration'", quoteRight =
 
 export const timespanToMs = (timespan = "", quoteLeft = "duration'", quoteRight = "'") => {
     const m = unwrap(timespan, quoteLeft, quoteRight).match(_tsPattern);
+    if (!m?.length) { return; }
+
     let ms = 0;
-
-    if (m?.length) {
-        for (const { factor, patternIndex } of _tsList) {
-            const value = parseInt(m[patternIndex], 10);
-            if (!isNaN(value)) { ms += value * factor; }
-        };
-    }
-
+    for (const { factor, patternIndex } of _tsList) {
+        const value = parseInt(m[patternIndex], 10);
+        if (!isNaN(value)) { ms += value * factor; }
+    };
     return ms;
 }
 
 
 // const durationExamples = [
+//   null,
 //   "duration'P2DT4H30M'",
 //   "duration'PT10H15M'",
 //   "duration'PT45M'",

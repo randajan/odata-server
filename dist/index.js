@@ -850,6 +850,9 @@ var _tsList = [
   { unit: "S", factor: 1e3, group: "T", patternIndex: 5 }
 ];
 var msToTimespan = (milliseconds, quoteLeft = "duration'", quoteRight = "'") => {
+  if (typeof milliseconds !== "number" || isNaN(milliseconds) || milliseconds < 0) {
+    return;
+  }
   let rest = milliseconds;
   let duration = "P";
   let groupCurrent = "";
@@ -869,16 +872,17 @@ var msToTimespan = (milliseconds, quoteLeft = "duration'", quoteRight = "'") => 
 };
 var timespanToMs = (timespan = "", quoteLeft = "duration'", quoteRight = "'") => {
   const m = unwrap(timespan, quoteLeft, quoteRight).match(_tsPattern);
-  let ms = 0;
-  if (m?.length) {
-    for (const { factor, patternIndex } of _tsList) {
-      const value = parseInt(m[patternIndex], 10);
-      if (!isNaN(value)) {
-        ms += value * factor;
-      }
-    }
-    ;
+  if (!m?.length) {
+    return;
   }
+  let ms = 0;
+  for (const { factor, patternIndex } of _tsList) {
+    const value = parseInt(m[patternIndex], 10);
+    if (!isNaN(value)) {
+      ms += value * factor;
+    }
+  }
+  ;
   return ms;
 };
 
