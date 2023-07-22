@@ -39,8 +39,8 @@ export class Gateway {
             if (server.cors) { responder.setHeader('Access-Control-Allow-Origin', server.cors); }
 
             context = await this.fetchContext(responder);
-            return context.route.resolve(context);
-
+            return await context.route.resolve(context);
+            
         } catch (e) {
 
             const error = {
