@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "2.1.12", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "2.1.13", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -477,7 +477,7 @@ var _pull = async (vals, method, context, to) => {
   if (typeof to !== "object") {
     to = {};
   }
-  ent.forProps(async (prop, i) => {
+  await ent.forProps(async (prop, i) => {
     if (!prop.key && !await context.filter(ent.name, i)) {
       return;
     }
@@ -494,12 +494,12 @@ var pullBody = async (vals, method, context, to) => {
   if (!toArray) {
     return _pull(vals, method, context, to);
   }
-  for (const raw of vals) {
+  await Promise.all(vals.map(async (raw) => {
     const val = await _pull(raw, method, context);
     if (val) {
       to.push(val);
     }
-  }
+  }));
   return to;
 };
 var { solid: solid5 } = jet6.prop;

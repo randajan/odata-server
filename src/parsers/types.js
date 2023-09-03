@@ -25,7 +25,7 @@ const _pull = async (vals, method, context, to)=>{
     if (tpv !== "function" && tpv !== "object") { return to; }
     if (typeof to !== "object") { to = {}; }
 
-    ent.forProps(async (prop, i)=>{
+    await ent.forProps(async (prop, i)=>{
         if (!prop.key && !await context.filter(ent.name, i)) { return; }
         const val = prop.convert(tpv === "function" ? await vals(i) : vals[i], method, context);
         if (val !== undefined) { to[i] = val; }
@@ -38,9 +38,9 @@ export const pullBody = async (vals, method, context, to)=>{
     const toArray = Array.isArray(to);
     vals = (toArray === Array.isArray(vals)) ? vals : toArray ? [vals] : vals[0];
     if (!toArray) { return _pull(vals, method, context, to); }
-    for (const raw of vals) {
+    await Promise.all(vals.map(async raw=>{
         const val = await _pull(raw, method, context);
         if (val) { to.push(val); }
-    }
+    }));
     return to;
 }

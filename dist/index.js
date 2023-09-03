@@ -452,7 +452,7 @@ var _pull = async (vals, method, context, to) => {
   if (typeof to !== "object") {
     to = {};
   }
-  ent.forProps(async (prop, i) => {
+  await ent.forProps(async (prop, i) => {
     if (!prop.key && !await context.filter(ent.name, i)) {
       return;
     }
@@ -469,12 +469,12 @@ var pullBody = async (vals, method, context, to) => {
   if (!toArray) {
     return _pull(vals, method, context, to);
   }
-  for (const raw of vals) {
+  await Promise.all(vals.map(async (raw) => {
     const val = await _pull(raw, method, context);
     if (val) {
       to.push(val);
     }
-  }
+  }));
   return to;
 };
 
