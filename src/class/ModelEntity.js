@@ -12,6 +12,7 @@ export class ModelEntity {
         solid(this, "model", model, false);
         solid(this, "name", name);
 
+
         attrs = Object.jet.to(attrs);
         for (const i in attrs) { solid(this, i, attrs[i]); }
 
@@ -19,12 +20,13 @@ export class ModelEntity {
 
         if (!entityType) { throw Error(msg(`missing!`, name, "entityType")); }
 
-        const typeName = unwrap(entityType, model.namespace+".");
-        if (!typeName) { throw Error(msg(`missing namespace '${ model.namespace }' prefix`, name, "entityType")); }
+        const typeName = unwrap(entityType, model.namespace + ".");
+        if (!typeName) { throw Error(msg(`missing namespace '${model.namespace}' prefix`, name, "entityType")); }
         const props = model.entityTypes[typeName];
         if (!props) { throw Error(msg(`definition missing at 'model.entityTypes.${typeName}'`, name, "entityType")); }
 
         solid(this, "props", props);
+        solid(this, "propsList", Object.keys(props));
 
         for (const propName in props) {
             if (!props[propName].key) { continue; }
@@ -34,6 +36,23 @@ export class ModelEntity {
 
         if (!this.primaryKey) { throw Error(msg(`primaryKey is missing`, name)); }
 
+    }
+
+    async forProps(callback) {
+        await Promise.all(this.propsList.map(i=>callback(this.props[i], i)));
+    }
+
+    async mapProps(callback, byKey = false) {
+        
+        const res = byKey ? {} : [];
+
+        await this.forProps(async (prop, i)=>{
+            const r = await callback(prop, i);
+            if (r === undefined ) { return; }
+            if (byKey) { res[i] = r; } else { res.push(r); }
+        });
+
+        return res;
     }
 
 }

@@ -394,6 +394,7 @@ var ModelEntity = class {
       throw Error(msg(`definition missing at 'model.entityTypes.${typeName}'`, name, "entityType"));
     }
     solid4(this, "props", props);
+    solid4(this, "propsList", Object.keys(props));
     for (const propName in props) {
       if (!props[propName].key) {
         continue;
@@ -406,6 +407,24 @@ var ModelEntity = class {
     if (!this.primaryKey) {
       throw Error(msg(`primaryKey is missing`, name));
     }
+  }
+  async forProps(callback) {
+    await Promise.all(this.propsList.map((i) => callback(this.props[i], i)));
+  }
+  async mapProps(callback, byKey = false) {
+    const res = byKey ? {} : [];
+    await this.forProps(async (prop, i) => {
+      const r = await callback(prop, i);
+      if (r === void 0) {
+        return;
+      }
+      if (byKey) {
+        res[i] = r;
+      } else {
+        res.push(r);
+      }
+    });
+    return res;
   }
 };
 
@@ -425,26 +444,23 @@ var assignPack = (obj, model, msg, name, childs, validateChild) => {
   return obj;
 };
 var _pull = async (vals, method, context, to) => {
-  const { name, props } = await context.fetchEntity();
-  if (typeof vals !== "object") {
+  const ent = await context.fetchEntity();
+  const tpv = typeof vals;
+  if (tpv !== "function" && tpv !== "object") {
     return to;
   }
   if (typeof to !== "object") {
     to = {};
   }
-  for (let i in vals) {
-    const prop = props[i];
-    if (!prop) {
-      continue;
+  ent.forProps(async (prop, i) => {
+    if (!prop.key && !await context.filter(ent.name, i)) {
+      return;
     }
-    if (!prop.key && !await context.filter(name, i)) {
-      continue;
-    }
-    const val = prop.convert(vals[i], method, context);
+    const val = prop.convert(tpv === "function" ? await vals(i) : vals[i], method, context);
     if (val !== void 0) {
       to[i] = val;
     }
-  }
+  });
   return to;
 };
 var pullBody = async (vals, method, context, to) => {

@@ -1,5 +1,5 @@
 // <define:__slib_info>
-var define_slib_info_default = { isProd: true, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "2.1.11", author: "Jan Randa", env: "prod", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
+var define_slib_info_default = { isProd: false, name: "@randajan/odata-server", description: "OData server with adapter for mongodb", version: "2.1.12", author: "Jan Randa", env: "dev", mode: "node", port: 4002, dir: { root: "C:\\dev\\lib\\odata-server", dist: "demo/dist" } };
 
 // node_modules/@randajan/simple-lib/dist/chunk-Z4H3NSHL.js
 import chalkNative from "chalk";
@@ -422,6 +422,7 @@ var ModelEntity = class {
       throw Error(msg(`definition missing at 'model.entityTypes.${typeName}'`, name, "entityType"));
     }
     solid4(this, "props", props);
+    solid4(this, "propsList", Object.keys(props));
     for (const propName in props) {
       if (!props[propName].key) {
         continue;
@@ -434,6 +435,24 @@ var ModelEntity = class {
     if (!this.primaryKey) {
       throw Error(msg(`primaryKey is missing`, name));
     }
+  }
+  async forProps(callback) {
+    await Promise.all(this.propsList.map((i) => callback(this.props[i], i)));
+  }
+  async mapProps(callback, byKey = false) {
+    const res = byKey ? {} : [];
+    await this.forProps(async (prop, i) => {
+      const r = await callback(prop, i);
+      if (r === void 0) {
+        return;
+      }
+      if (byKey) {
+        res[i] = r;
+      } else {
+        res.push(r);
+      }
+    });
+    return res;
   }
 };
 var { cached: cached3 } = jet5.prop;
@@ -450,26 +469,23 @@ var assignPack = (obj, model2, msg, name, childs, validateChild) => {
   return obj;
 };
 var _pull = async (vals, method, context, to) => {
-  const { name, props } = await context.fetchEntity();
-  if (typeof vals !== "object") {
+  const ent = await context.fetchEntity();
+  const tpv = typeof vals;
+  if (tpv !== "function" && tpv !== "object") {
     return to;
   }
   if (typeof to !== "object") {
     to = {};
   }
-  for (let i in vals) {
-    const prop = props[i];
-    if (!prop) {
-      continue;
+  ent.forProps(async (prop, i) => {
+    if (!prop.key && !await context.filter(ent.name, i)) {
+      return;
     }
-    if (!prop.key && !await context.filter(name, i)) {
-      continue;
-    }
-    const val = prop.convert(vals[i], method, context);
+    const val = prop.convert(tpv === "function" ? await vals(i) : vals[i], method, context);
     if (val !== void 0) {
       to[i] = val;
     }
-  }
+  });
   return to;
 };
 var pullBody = async (vals, method, context, to) => {
@@ -984,7 +1000,7 @@ var model = {
   entityTypes: {
     "UserType": {
       "_id": { "type": "Edm.String", key: true },
-      "test": { "type": "Edm.String" }
+      "name": { "type": "Edm.String" }
     }
   },
   entitySets: {

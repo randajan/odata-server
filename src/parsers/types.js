@@ -20,16 +20,17 @@ export const assignPack = (obj, model, msg, name, childs, validateChild)=>{
 
 //filter:props
 const _pull = async (vals, method, context, to)=>{
-    const { name, props } = await context.fetchEntity();
-    if (typeof vals !== "object") { return to; }
+    const ent = await context.fetchEntity();
+    const tpv = typeof vals;
+    if (tpv !== "function" && tpv !== "object") { return to; }
     if (typeof to !== "object") { to = {}; }
-    for (let i in vals) {
-        const prop = props[i];
-        if (!prop) { continue; }
-        if (!prop.key && !await context.filter(name, i)) { continue; }
-        const val = prop.convert(vals[i], method, context);
+
+    ent.forProps(async (prop, i)=>{
+        if (!prop.key && !await context.filter(ent.name, i)) { return; }
+        const val = prop.convert(tpv === "function" ? await vals(i) : vals[i], method, context);
         if (val !== undefined) { to[i] = val; }
-    }
+    });
+
     return to;
 }
 

@@ -16,7 +16,7 @@ const model = {
     entityTypes: {
         "UserType": {
             "_id": {"type": "Edm.String", key: true},
-            "test": {"type": "Edm.String"},            
+            "name": {"type": "Edm.String"},            
         }
     },   
     entitySets: {

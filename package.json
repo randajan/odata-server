@@ -49,6 +49,6 @@
     "url": "https://www.linkedin.com/in/randajan/"
   },
   "peerDependencies": {
-    "@randajan/jet-core": "^3.1.6"
+    "@randajan/jet-core": "^3.2.7"
   }
 }
