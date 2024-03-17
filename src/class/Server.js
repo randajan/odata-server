@@ -15,11 +15,12 @@ export class Server {
 
     const { model, cors, converter, onError } = options;
 
-    const [ uid, _p ] = vault.set({
+    const _p = {
       routes:{},
-    });
+    }
 
-    solid(this, "uid", uid, false);
+    vault.set(this, _p);
+
     solid(this, "cors", String.jet.to(cors));
 
     cached.all(this, _p, {
@@ -54,7 +55,7 @@ export class Server {
   }
 
   addRoute(method, path, action) {
-    const { routes } = vault.get(this.uid);
+    const { routes } = vault.get(this);
     const list = routes[method] || (routes[method] = []);
     const route = new Route(this, method, path, action);
     list.push(route);
@@ -62,7 +63,7 @@ export class Server {
   }
 
   findRoute(method, path) {
-    const _p = vault.get(this.uid);
+    const _p = vault.get(this);
     const routes = _p.routes[method] || [];
 
     for (const route of routes) {

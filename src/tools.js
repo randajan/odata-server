@@ -5,7 +5,7 @@ import jet from "@randajan/jet-core";
 
 const { solid } = jet.prop;
 
-export const vault = jet.vault("ODataServer");
+export const vault = new WeakMap();
 
 
 export const withBrackets = (val, quote="")=>{
