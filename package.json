@@ -30,7 +30,7 @@
     "xmlbuilder": "15.1.1"
   },
   "devDependencies": {
-    "@randajan/simple-lib": "^2.2.1",
+    "@randajan/simple-lib": "^2.3.1",
     "esbuild-plugin-import-glob": "^0.1.1",
     "mongodb": "4.7.0"
   },
@@ -49,6 +49,6 @@
     "url": "https://www.linkedin.com/in/randajan/"
   },
   "peerDependencies": {
-    "@randajan/jet-core": "^3.3.0"
+    "@randajan/jet-core": "^4.0.7"
   }
 }

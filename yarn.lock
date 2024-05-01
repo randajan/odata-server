@@ -133,24 +133,23 @@
     "@nodelib/fs.scandir" "2.1.5"
     fastq "^1.6.0"
 
-"@randajan/jet-core@^3.3.0":
-  version "3.3.0"
-  resolved "https://registry.yarnpkg.com/@randajan/jet-core/-/jet-core-3.3.0.tgz#afbe765d54c1a97ca396a4f90c29031d37e97f6c"
-  integrity sha512-nRSGMgnGKv7iQkxgjJGvUmaO1JdLSFbh0kwPZ1tMyTTMv9R84CAZQSKT1EZa6XVcBBTLn1s9cm6p6wIwxEJo/g==
+"@randajan/jet-core@^4.0.7":
+  version "4.0.7"
+  resolved "https://registry.yarnpkg.com/@randajan/jet-core/-/jet-core-4.0.7.tgz#57a5150346db4f95dd86021f6a0119fc054595ec"
+  integrity sha512-gTFmu+0ivpBeo1HfFyNOWEHAo1FJErJmzXtoEp9Icxx0z2aF15Y217EDfFgO0o9pwnUepawniEyKc6XxhI8GVA==
 
-"@randajan/simple-lib@^2.2.1":
-  version "2.2.1"
-  resolved "https://registry.yarnpkg.com/@randajan/simple-lib/-/simple-lib-2.2.1.tgz#7da78f8d0c69de81e0e4dad3b0239b9195a69d1c"
-  integrity sha512-TerXPO+44JVpiJuceQg3LuYe99Uc3T31LS+NGGtCyxSpkVSRd+3AJA6OoDK5EIf22/KExyKgWqxQvQUYQZHCew==
+"@randajan/simple-lib@^2.3.1":
+  version "2.3.1"
+  resolved "https://registry.yarnpkg.com/@randajan/simple-lib/-/simple-lib-2.3.1.tgz#216ba7b9f644ae0dca43881f6198e460651ede0e"
+  integrity sha512-qp9SEc19TClLrLXOnrs8GUWJjz74Lq264Y7S7bGRN4djQa7lmI+eCHPNjH0p/ddb1GRe0fHmbf7brl2mH/3dhA==
   dependencies:
     app-root-path "^3.1.0"
-    approot "^0.2.1"
     chalk "^5.2.0"
-    chokidar "^3.5.3"
-    esbuild "^0.16.17"
+    chokidar "^3.6.0"
+    esbuild "0.16.17"
     esbuild-node-externals "^1.13.0"
-    fs-extra "^10.1.0"
-    live-server "^1.2.1"
+    fs-extra "^11.2.0"
+    live-server "^1.2.2"
 
 "@types/node@*":
   version "18.14.6"
@@ -210,11 +209,6 @@ app-root-path@^3.1.0:
   version "3.1.0"
   resolved "https://registry.yarnpkg.com/app-root-path/-/app-root-path-3.1.0.tgz#5971a2fc12ba170369a7a1ef018c71e6e47c2e86"
   integrity sha512-biN3PwB2gUtjaYy/isrU3aNWI5w+fAfvHkSvCKeQGxhmYpwKFUxudR3Yya+KqVRHBmEDYh+/lTozYCFbmzX4nA==
-
-approot@^0.2.1:
-  version "0.2.1"
-  resolved "https://registry.yarnpkg.com/approot/-/approot-0.2.1.tgz#f82f0b01274100fcf00f2f45210cbc2a1644c2fe"
-  integrity sha512-MVZxycuPzDoY/LfqbmLiSPL4HJaI9auz4fsnSdAyuhoqbPAWVicCgEWXLd859gsV5z55bAfPJvCaIewX3Ra1Tg==
 
 arr-diff@^4.0.0:
   version "4.0.0"
@@ -380,10 +374,10 @@ chokidar@^2.0.4:
   optionalDependencies:
     fsevents "^1.2.7"
 
-chokidar@^3.5.3:
-  version "3.5.3"
-  resolved "https://registry.yarnpkg.com/chokidar/-/chokidar-3.5.3.tgz#1cf37c8707b932bd1af1ae22c0432e2acd1903bd"
-  integrity sha512-Dr3sfKRP6oTcjf2JmUmFJfeVMvXBdegxB0iVQ5eb2V10uFJUCAS8OByZdVAyVb8xXNz3GjjTgj9kLWsZTqE6kw==
+chokidar@^3.6.0:
+  version "3.6.0"
+  resolved "https://registry.yarnpkg.com/chokidar/-/chokidar-3.6.0.tgz#197c6cc669ef2a8dc5e7b4d97ee4e092c3eb0d5b"
+  integrity sha512-7VT13fmjotKpGipCW9JEQAusEPE+Ei8nl6/g4FBAmIm0GOOLMua9NDDo/DWp0ZAxCr3cPq5ZpBqmPAQgDda2Pw==
   dependencies:
     anymatch "~3.1.2"
     braces "~3.0.2"
@@ -535,7 +529,7 @@ esbuild-plugin-import-glob@^0.1.1:
   dependencies:
     fast-glob "^3.2.5"
 
-esbuild@^0.16.17:
+esbuild@0.16.17:
   version "0.16.17"
   resolved "https://registry.yarnpkg.com/esbuild/-/esbuild-0.16.17.tgz#fc2c3914c57ee750635fee71b89f615f25065259"
   integrity sha512-G8LEkV0XzDMNwXKgM0Jwu3nY3lSTwSGY6XbxM9cr9+s0T/qSV1q1JVPBGzm3dcjhCic9+emZDmMffkwgPeOeLg==
@@ -718,10 +712,10 @@ from@~0:
   resolved "https://registry.yarnpkg.com/from/-/from-0.1.7.tgz#83c60afc58b9c56997007ed1a768b3ab303a44fe"
   integrity sha512-twe20eF1OxVxp/ML/kq2p1uc6KvFK/+vs8WjEbeKmV2He22MKm7YF2ANIt+EOqhJ5L3K/SuuPhk0hWQDjOM23g==
 
-fs-extra@^10.1.0:
-  version "10.1.0"
-  resolved "https://registry.yarnpkg.com/fs-extra/-/fs-extra-10.1.0.tgz#02873cfbc4084dde127eaa5f9905eef2325d1abf"
-  integrity sha512-oRXApq54ETRj4eMiFzGnHWGy+zo5raudjuxN0b8H7s/RU2oW0Wvsx9O0ACRN/kRq9E8Vu/ReskGB5o3ji+FzHQ==
+fs-extra@^11.2.0:
+  version "11.2.0"
+  resolved "https://registry.yarnpkg.com/fs-extra/-/fs-extra-11.2.0.tgz#e70e17dfad64232287d01929399e0ea7c86b0e5b"
+  integrity sha512-PmDi3uwK5nFuXh7XDTlVnS17xJS7vW36is2+w3xcv8SVxiB4NyATf4ctkVY5bkSjX0Y4nbvZCq1/EjtEyr9ktw==
   dependencies:
     graceful-fs "^4.2.0"
     jsonfile "^6.0.1"
@@ -1027,7 +1021,7 @@ kind-of@^6.0.0, kind-of@^6.0.2:
   resolved "https://registry.yarnpkg.com/kind-of/-/kind-of-6.0.3.tgz#07c05034a6c349fa06e24fa35aa76db4580ce4dd"
   integrity sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==
 
-live-server@^1.2.1:
+live-server@^1.2.2:
   version "1.2.2"
   resolved "https://registry.yarnpkg.com/live-server/-/live-server-1.2.2.tgz#20b4fe5c2ca886faa61813310e28680804f48dad"
   integrity sha512-t28HXLjITRGoMSrCOv4eZ88viHaBVIjKjdI5PO92Vxlu+twbk6aE0t7dVIaz6ZWkjPilYFV6OSdMYl9ybN2B4w==

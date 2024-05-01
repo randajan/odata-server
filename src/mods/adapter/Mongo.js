@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
 import jet from "@randajan/jet-core";
+import { map } from "@randajan/jet-core/eachSync";
 
 const { solid } = jet.prop;
 
@@ -9,8 +10,8 @@ export class MongoAdapter {
         solid(this, "connect", connect, false);
     }
 
-    optValidator(val, fk, pk, key) { return (key === "_id") ? ObjectId(val) : val; }
-    optValidate(o) { return jet.map(o, this.optValidator.bind(this), true); }
+    optValidator(val, ctx, entity) { return (ctx.key === entity.primaryKey) ? ObjectId(val) : val; }
+    optValidate(opt, entity) { return map(opt, (val, ctx)=>this.optValidator(val, ctx, entity), { deep:true }); }
 
     async getDB(context) {
         return (await this.connect(context)).db(context.model.namespace);
@@ -21,8 +22,9 @@ export class MongoAdapter {
     }
 
     async remove(context) {
+        const entity = await context.fetchEntity();
         const options = await context.fetchOptions();
-        const { $filter } = this.optValidate({ $filter:options.$filter });
+        const { $filter } = this.optValidate({ $filter:options.$filter }, entity);
 
         const col = await this.getCollection(context);
         const res = await col.deleteOne($filter);
@@ -31,8 +33,9 @@ export class MongoAdapter {
     }
     
     async update(context) {
+        const entity = await context.fetchEntity();
         const options = await context.fetchOptions();
-        const { $filter } = this.optValidate({ $filter:options.$filter });
+        const { $filter } = this.optValidate({ $filter:options.$filter }, entity);
 
         const col = await this.getCollection(context);
         const res = await col.updateOne($filter, {$set:await context.pullRequestBody({})});
@@ -53,8 +56,9 @@ export class MongoAdapter {
     }
     
     async query(context) {
+        const entity = await context.fetchEntity();
         const options = await context.fetchOptions();
-        const { $select, $sort, $skip, $limit, $filter } = this.optValidate(options);
+        const { $select, $sort, $skip, $limit, $filter } = this.optValidate(options, entity);
 
         const col = await this.getCollection(context);
         let qr = col.find($filter, { projection: $select || {} });
