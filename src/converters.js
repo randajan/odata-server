@@ -8,10 +8,10 @@ const _tsList = [
     { unit: "S", factor: 1000, group: "T", patternIndex: 5 }
 ];
 
-export const msToTimespan = (milliseconds, quoteLeft = "duration'", quoteRight = "'") => {
+export const msToTimespan = (milliseconds, quoteLeft = "", quoteRight = "") => {
     if (typeof milliseconds !== "number" || isNaN(milliseconds) || milliseconds < 0) { return; }
     let rest = milliseconds;
-    let duration = "P";
+    let duration = "";
     let groupCurrent = "";
 
     for (const { unit, factor, group } of _tsList) {
@@ -22,10 +22,10 @@ export const msToTimespan = (milliseconds, quoteLeft = "duration'", quoteRight =
         duration += `${value}${unit}`;
     };
 
-    return quoteLeft + duration + quoteRight;
+    return quoteLeft + "P" + (duration || "T0S") + quoteRight;
 };
 
-export const timespanToMs = (timespan = "", quoteLeft = "duration'", quoteRight = "'") => {
+export const timespanToMs = (timespan = "", quoteLeft = "", quoteRight = "") => {
     const m = unwrap(timespan, quoteLeft, quoteRight).match(_tsPattern);
     if (!m?.length) { return; }
 
