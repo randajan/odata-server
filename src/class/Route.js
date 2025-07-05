@@ -4,15 +4,17 @@ import actions from "../actions";
 import { decodeParam } from '../tools';
 
 
-import { solid, solids, cached, virtual } from "@randajan/props";
+import { solid, solids, cached, virtuals } from "@randajan/props";
 
 export class Route {
     constructor(server, method, path, action) {
 
-        const keys = [];
+        let _p = cached({}, {}, "ptr", _=>pathToRegexp(path, []));
 
-        cached(this, {}, "regex", _ => pathToRegexp(path, keys)?.regexp, false);
-        virtual(this, "keys", _ => { this.regex; return keys; }, false);
+        virtuals(this, {
+            regex:_=>_p.ptr.regexp,
+            keys:_=>_p.ptr.keys
+        });
 
         solid(this, "server", server, false);
         solids(this, {
