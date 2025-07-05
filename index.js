@@ -11,7 +11,7 @@ slib(argv.isBuild, {
         entries:["index.js", "mods/adapter/Mongo.js", "mods/responder/Express.js", "mods/responder/Koa.js"],
         plugins:[ImportGlobPlugin.default()]
     },
-    demo:{
-        external:["chalk"]
-    }
+    // demo:{
+    //     external:["chalk"]
+    // }
 })

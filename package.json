@@ -7,10 +7,22 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "exports": {
-    ".": "./dist/index.js",
-    "./mongo": "./dist/mods/adapter/Mongo.js",
-    "./express": "./dist/mods/responder/Express.js",
-    "./koa": "./dist/mods/responder/Koa.js"
+    ".": {
+      "import": "./dist/esm/index.mjs",
+      "require": "./dist/cjs/index.cjs"
+    },
+    "./mongo": {
+      "import": "./dist/esm/mods/adapter/Mongo.mjs",
+      "require": "./dist/cjs/mods/adapter/Mongo.cjs"
+    },
+    "./express": {
+      "import": "./dist/esm/mods/responder/Express.mjs",
+      "require": "./dist/cjs/mods/responder/Express.cjs"
+    },
+    "./koa": {
+      "import": "./dist/esm/mods/responder/Koa.mjs",
+      "require": "./dist/cjs/mods/responder/Koa.cjs"
+    }
   },
   "scripts": {
     "start": "set NODE_ENV=dev&& node ./index.js",
@@ -26,11 +38,11 @@
   "dependencies": {
     "methods": "1.1.2",
     "odata-parser": "^1.4.1",
-    "path-to-regexp": "6.2.1",
+    "path-to-regexp": "^8.2.0",
     "xmlbuilder": "15.1.1"
   },
   "devDependencies": {
-    "@randajan/simple-lib": "^2.3.1",
+    "@randajan/simple-lib": "^3.2.0",
     "esbuild-plugin-import-glob": "^0.1.1",
     "mongodb": "4.7.0"
   },
@@ -49,6 +61,6 @@
     "url": "https://www.linkedin.com/in/randajan/"
   },
   "peerDependencies": {
-    "@randajan/jet-core": "^4.0.7"
+    "@randajan/jet-core": "^4.1.0"
   }
 }

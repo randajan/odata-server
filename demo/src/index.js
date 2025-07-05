@@ -1,7 +1,7 @@
 import { info } from "@randajan/simple-lib/node";
-import ODataServer from "../../dist/index.js";
-import mongoAdapter from "../../dist/mods/adapter/Mongo.js";
-import expressResponder from "../../dist/mods/responder/Express.js";
+import ODataServer from "../../dist/esm/index.mjs";
+import mongoAdapter from "../../dist/esm/mods/adapter/Mongo.mjs";
+import expressResponder from "../../dist/esm/mods/responder/Express.mjs";
 
 import { MongoClient } from "mongodb";
 import http from "http";
