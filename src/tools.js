@@ -1,9 +1,8 @@
 
 import { parse as urlParser } from "url";
 import builder from 'xmlbuilder';
-import jet from "@randajan/jet-core";
+import { solid } from "@randajan/props";
 
-const { solid } = jet.prop;
 
 export const vault = new WeakMap();
 

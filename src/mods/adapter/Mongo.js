@@ -2,7 +2,7 @@ import { ObjectId } from "mongodb";
 import jet from "@randajan/jet-core";
 import { map } from "@randajan/jet-core/eachSync";
 
-const { solid } = jet.prop;
+import { solid } from "@randajan/props";
 
 export class MongoAdapter {
 

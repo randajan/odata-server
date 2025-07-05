@@ -1,11 +1,9 @@
-import jet from "@randajan/jet-core";
-
-const { solid } = jet.prop;
+import { solids } from "@randajan/props";
 
 export class KoaResponder {
 
     constructor(context) {
-        solid.all(this, {context});
+        solids(this, {context});
     }
 
     getURL() {

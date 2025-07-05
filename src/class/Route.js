@@ -1,21 +1,21 @@
 import { pathToRegexp } from 'path-to-regexp';
-import jet from "@randajan/jet-core";
 
 import actions from "../actions";
 import { decodeParam } from '../tools';
 
-const { solid, cached, virtual } = jet.prop;
+
+import { solid, solids, cached, virtual } from "@randajan/props";
 
 export class Route {
     constructor(server, method, path, action) {
 
         const keys = [];
 
-        cached(this, {}, "regex", _ => pathToRegexp(path, keys), false);
+        cached(this, {}, "regex", _ => pathToRegexp(path, keys)?.regexp, false);
         virtual(this, "keys", _ => { this.regex; return keys; }, false);
 
         solid(this, "server", server, false);
-        solid.all(this, {
+        solids(this, {
             method,
             path,
             action

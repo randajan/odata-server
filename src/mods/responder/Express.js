@@ -1,11 +1,11 @@
 import jet from "@randajan/jet-core";
 
-const { solid } = jet.prop;
+import { solids } from "@randajan/props";
 
 export class ExpressResponder {
 
     constructor(request, response) {
-        solid.all(this, {request, response});
+        solids(this, {request, response});
     }
 
     getURL() {

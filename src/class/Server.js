@@ -8,7 +8,7 @@ import { Route } from "./Route";
 import { Model } from "./Model";
 import { Gateway } from "./Gateway";
 
-const { solid, cached } = jet.prop;
+import { solid, solids, cacheds } from "@randajan/props";
 
 export class Server {
   constructor(options={}) {
@@ -23,11 +23,11 @@ export class Server {
 
     solid(this, "cors", String.jet.to(cors));
 
-    cached.all(this, _p, {
+    cacheds(this, _p, {
       _model:async _=>new Model(this, await (jet.isRunnable(model) ? model() : model), converter)
     }, false);
 
-    solid.all(this, {
+    solids(this, {
       serve:(responder, url, ...extendArgs)=>{
         const gw = new Gateway(this, url, options, extendArgs);
         return (...a)=>gw.resolve(responder(...a));

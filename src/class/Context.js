@@ -4,24 +4,24 @@ import { _fetchOptions } from "../parsers/options";
 import { getScope, getScopeMeta, isWrapped, parseUrl, trimUrl, unwrap } from "../tools";
 import { pullBody } from "../parsers/types";
 
-const { solid, cached, safe } = jet.prop;
+import { solids, cacheds } from "@randajan/props";
 
 export class Context {
     constructor(gw, model, responder, adapter, filter) {
         const { server } = gw;
 
-        solid.all(this, {
+        solids(this, {
             server,
             gw,
             model
         });
 
-        solid.all(this, {
+        solids(this, {
             responder,
             filter:jet.isRunnable(filter) ? (entity, property)=>filter(this, entity, property) : _=>true
         }, false);
 
-        cached.all(this, {}, {
+        cacheds(this, {}, {
             url: _ =>{
                 const urlReq = responder.getURL();
                 const urlBase = trimUrl(gw.url.pathname);
@@ -33,7 +33,7 @@ export class Context {
             params: _ => this.route.parseParams(this.url.pathname)
         });
 
-        cached.all(this, {}, {
+        cacheds(this, {}, {
             _entity: async _ =>{
                 const { entity } = this.params;
                 if (await this.filter(entity)) { return this.model.findEntity(entity); }

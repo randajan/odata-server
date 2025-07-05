@@ -1,8 +1,6 @@
-import jet from "@randajan/jet-core";
-
 import { unwrap } from "../tools";
 
-const { solid, cached } = jet.prop;
+import { solid } from "@randajan/props";
 
 
 export class ModelEntity {

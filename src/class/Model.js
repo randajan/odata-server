@@ -7,7 +7,7 @@ import { assignPack } from "../parsers/types";
 import { propTypes } from "../consts";
 import { isWrapped, unwrap } from "../tools";
 
-const { solid } = jet.prop;
+import { solid } from "@randajan/props";
 
 const createProp = (model, msg, name, attrs)=>new ModelProp(model, msg, name, attrs);
 const createEntity = (model, msg, name, attrs)=>new ModelEntity(model, msg, name, attrs);

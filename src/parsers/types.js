@@ -1,6 +1,4 @@
-import jet from "@randajan/jet-core";
-
-const { cached } = jet.prop;
+import { cached } from "@randajan/props";
 
 const validateChildDefault = (model, msg, name, child)=>child;
 

@@ -3,18 +3,18 @@ import jet from "@randajan/jet-core";
 import { parseUrl } from "../tools";
 import { Context } from "./Context";
 
-const { solid } = jet.prop;
+import { solids } from "@randajan/props";
 
 export class Gateway {
 
     constructor(server, url, options={}, extendArgs=[]) {
         const { adapter, filter, extender } = options;
 
-        solid.all(this, {
+        solids(this, {
             url:parseUrl(url, false),
         });
 
-        solid.all(this, {
+        solids(this, {
             server,
             fetchContext:async responder=>{
                 const context = new Context(this, await server.fetchModel(), responder, adapter, filter);

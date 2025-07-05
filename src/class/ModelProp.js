@@ -1,9 +1,7 @@
-import jet from "@randajan/jet-core";
-
 import { propTypes } from "../consts";
 import { unwrap } from "../tools";
 
-const { solid } = jet.prop;
+import { solid } from "@randajan/props";
 
 const convert = (prop, vals, method, context, subCollection)=> {
     const { isCollection, complex, primitive, name, model } = prop;
